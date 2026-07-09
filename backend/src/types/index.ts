@@ -1,7 +1,6 @@
 /**
  * index.ts (types)
  * Shared TypeScript interfaces and enums used across the backend.
- * Keeping types in one place makes refactoring easier.
  */
 
 import { Request } from 'express';
@@ -79,10 +78,10 @@ export interface IRecognitionLog {
   _id: Types.ObjectId;
   personName?: string;
   isUnknown: boolean;
-  confidence: number; // 0 to 1
+  confidence: number;
   cameraId?: Types.ObjectId;
   videoId?: Types.ObjectId;
-  snapshot?: string; // path to captured image
+  snapshot?: string;
   timestamp: Date;
   createdAt: Date;
 }
@@ -99,34 +98,79 @@ export interface IUnknownFace {
 }
 
 // ──────────────────────────────────────────
-// Complaint Types
+// Complaint (Missing Person Report) Types
 // ──────────────────────────────────────────
 
-export type ComplaintType =
-  | 'camera_issue'
-  | 'false_detection'
-  | 'system_error'
-  | 'unauthorized_access'
-  | 'other';
-
-export type ComplaintStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
-export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
+export type ComplaintStatus =
+  | 'complaint_registered'
+  | 'under_investigation'
+  | 'searching_cctv'
+  | 'possible_match_found'
+  | 'match_confirmed'
+  | 'false_match'
+  | 'person_found'
+  | 'case_closed';
 
 export interface IComplaint {
   _id: Types.ObjectId;
-  name: string;
-  email: string;
-  phone?: string;
-  type: ComplaintType;
-  cameraId?: Types.ObjectId;
-  incidentAt: Date;
-  description: string;
+  complaintId?: string;
+
+  // Missing Person
+  missingPersonName?: string;
+  age?: string;
+  gender: 'male' | 'female' | 'other' | 'unknown';
+  height?: string;
+  weight?: string;
+  skinTone?: string;
+  hairColor?: string;
+  eyeColor?: string;
+  lastSeenLocation: string;
+  lastSeenTime: Date;
+  clothesWorn?: string;
+  identifyingMarks?: string;
+  medicalConditions?: string;
+  additionalDescription?: string;
   attachments?: string[];
-  priority: ComplaintPriority;
+  searchVector?: number[];
+
+  // Complainant
+  reporterName: string;
+  reporterMobile: string;
+  reporterAltMobile?: string;
+  reporterEmail?: string;
+  reporterRelationship?: string;
+  reporterAddress?: string;
+  reporterGovtId?: string;
+
+  // Police Case
+  policeStation?: string;
+  officerName?: string;
+  firNumber?: string;  // FIR Number assigned by police
+
+  // Case
   status: ComplaintStatus;
   assignedTo?: Types.ObjectId;
   remarks?: string;
   createdBy?: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ──────────────────────────────────────────
+// Case History Types
+// ──────────────────────────────────────────
+
+export interface ICaseHistory {
+  _id: Types.ObjectId;
+  complaintId: Types.ObjectId;
+  status: ComplaintStatus;
+  remarks?: string;
+  evidenceImages?: string[];
+  cctvCameraId?: string;
+  detectionTimestamp?: Date;
+  confidenceScore?: number;
+  updatedBy?: Types.ObjectId;
+  smsSent: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -151,7 +195,6 @@ export interface INotification {
 // Express Request Extension
 // ──────────────────────────────────────────
 
-// Extends Express Request to include the authenticated user
 export interface AuthRequest extends Request {
   user?: IUser;
 }

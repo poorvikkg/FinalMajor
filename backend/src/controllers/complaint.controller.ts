@@ -1,6 +1,6 @@
 /**
  * complaint.controller.ts
- * Handles HTTP requests for complaint management.
+ * Handles HTTP requests for missing person complaint management.
  */
 
 import { Response, NextFunction } from 'express';
@@ -34,6 +34,15 @@ export async function getOne(req: AuthRequest, res: Response, next: NextFunction
   }
 }
 
+export async function getHistory(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const history = await complaintService.getCaseHistory(req.params.id);
+    sendSuccess(res, 'Case history retrieved', history);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function create(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const attachmentUrls: string[] = [];
@@ -61,6 +70,38 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
     req.body.attachments = attachmentUrls;
     const complaint = await complaintService.createComplaint(req.body, req.user?._id);
     sendSuccess(res, 'Complaint submitted successfully', complaint, 201);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const evidenceUrls: string[] = [];
+
+    // Handle evidence image uploads if any
+    if (req.files && Array.isArray(req.files)) {
+      const filesList = req.files as Express.Multer.File[];
+      for (const file of filesList) {
+        try {
+          const url = await uploadToMinio(file.path, 'evidence');
+          evidenceUrls.push(url);
+        } finally {
+          if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        }
+      }
+    }
+
+    if (evidenceUrls.length > 0) {
+      req.body.evidenceImages = evidenceUrls;
+    }
+
+    const result = await complaintService.updateComplaintStatus(
+      req.params.id,
+      req.body,
+      req.user?._id
+    );
+    sendSuccess(res, 'Case status updated', result);
   } catch (err) {
     next(err);
   }

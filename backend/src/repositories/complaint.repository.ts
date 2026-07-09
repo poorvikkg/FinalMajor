@@ -12,7 +12,6 @@ export async function findAllComplaints(
 ): Promise<{ complaints: IComplaintDocument[]; total: number }> {
   const [complaints, total] = await Promise.all([
     Complaint.find(filter)
-      .populate('cameraId', 'name location')
       .populate('assignedTo', 'name email')
       .populate('createdBy', 'name email')
       .skip(pagination.skip)
@@ -26,7 +25,13 @@ export async function findAllComplaints(
 
 export async function findComplaintById(id: string): Promise<IComplaintDocument | null> {
   return Complaint.findById(id)
-    .populate('cameraId', 'name location')
+    .populate('assignedTo', 'name email')
+    .populate('createdBy', 'name email')
+    .lean() as any;
+}
+
+export async function findComplaintByComplaintId(complaintId: string): Promise<IComplaintDocument | null> {
+  return Complaint.findOne({ complaintId })
     .populate('assignedTo', 'name email')
     .populate('createdBy', 'name email')
     .lean() as any;
@@ -54,4 +59,13 @@ export async function countComplaintsByStatus() {
   return Complaint.aggregate([
     { $group: { _id: '$status', count: { $sum: 1 } } },
   ]);
+}
+
+export async function getLastComplaintNumber(): Promise<number> {
+  // Used to generate sequential complaint IDs like MP-20260709-0042
+  const today = new Date();
+  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+  const regex = new RegExp(`^MP-${dateStr}-`);
+  const count = await Complaint.countDocuments({ complaintId: { $regex: regex } });
+  return count;
 }

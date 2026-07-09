@@ -6,234 +6,277 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
+import { CaseHistoryTimeline } from '../../components/shared/CaseHistoryTimeline';
 import { useAuthStore } from '../../store/auth';
+import type { Complaint, ComplaintStatus } from '../../types';
 import api from '../../api';
 
-interface ComplaintItem {
-  _id: string;
-  name: string;
-  email: string;
-  type: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  status: 'open' | 'in_progress' | 'resolved' | 'closed';
-  description: string;
-  attachments?: string[];
-  remarks?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+// ── Label maps ───────────────────────────────────────────────────────────────
 
-const statusVariant = (s: string) =>
-  s === 'resolved' || s === 'closed' ? 'success' : s === 'in_progress' ? 'warning' : 'neutral';
-
-const priorityVariant = (p: string) =>
-  p === 'critical' || p === 'high' ? 'danger' : 'warning';
-
-const getImageUrl = (url: string) => {
-  const normalized = url.replace(/\\/g, '/');
-  return normalized.startsWith('http') ? normalized : `/${normalized}`;
+const STATUS_LABELS: Record<ComplaintStatus, string> = {
+  complaint_registered: 'Complaint Registered',
+  under_investigation: 'Under Investigation',
+  searching_cctv: 'Searching CCTV',
+  possible_match_found: 'Possible Match',
+  match_confirmed: 'Match Confirmed',
+  false_match: 'False Match',
+  person_found: 'Person Found',
+  case_closed: 'Case Closed',
 };
 
-/* ─────────────────────────────────────────────────── */
+const STATUS_VARIANT: Record<ComplaintStatus, 'neutral' | 'warning' | 'success' | 'danger'> = {
+  complaint_registered: 'neutral',
+  under_investigation: 'neutral',
+  searching_cctv: 'warning',
+  possible_match_found: 'warning',
+  match_confirmed: 'success',
+  false_match: 'danger',
+  person_found: 'success',
+  case_closed: 'neutral',
+};
+
+const PRIORITY_VARIANT: Record<string, 'neutral' | 'warning' | 'success' | 'danger'> = {
+  low: 'neutral',
+  medium: 'warning',
+  high: 'danger',
+  critical: 'danger',
+};
+
+const getImageUrl = (url: string) => {
+  const n = url.replace(/\\/g, '/');
+  return n.startsWith('http') ? n : `/${n}`;
+};
+
+const ALL_STATUSES: ComplaintStatus[] = [
+  'complaint_registered',
+  'under_investigation',
+  'searching_cctv',
+  'possible_match_found',
+  'match_confirmed',
+  'false_match',
+  'person_found',
+  'case_closed',
+];
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, value }) =>
+  value ? (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="text-xs text-slate-800 mt-0.5 break-words">{value}</p>
+    </div>
+  ) : null;
+
+// ── Main Component ───────────────────────────────────────────────────────────
+
 export const ComplaintManagement: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isViewer = user?.role === 'viewer';
+  const isOperator = user?.role === 'operator' || user?.role === 'admin';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [selected, setSelected] = useState<ComplaintItem | null>(null);
-  const [statusVal, setStatusVal] = useState<ComplaintItem['status']>('open');
-  const [remarks, setRemarks] = useState('');
+  const [selected, setSelected] = useState<Complaint | null>(null);
+  const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
 
-  // Fetch complaints — backend already filters by createdBy for viewer role
-  const { data: tickets = [], isLoading } = useQuery<ComplaintItem[]>({
+  // Status update form state (operator)
+  const [newStatus, setNewStatus] = useState<ComplaintStatus>('complaint_registered');
+  const [updateRemarks, setUpdateRemarks] = useState('');
+  const [cctvCameraId, setCctvCameraId] = useState('');
+  const [confidenceScore, setConfidenceScore] = useState('');
+  const [detectionTimestamp, setDetectionTimestamp] = useState('');
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  const { data: tickets = [], isLoading } = useQuery<Complaint[]>({
     queryKey: ['complaintsList'],
     queryFn: async () => {
-      try {
-        const r = await api.get('/complaints?limit=100');
-        return r.data.data;
-      } catch {
-        return [];
-      }
+      const r = await api.get('/complaints?limit=200');
+      return r.data.data;
     },
-    refetchInterval: isViewer ? 30000 : false, // viewers get auto-refresh to see status updates
+    refetchInterval: isViewer ? 30000 : 15000,
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, status, remarks }: { id: string; status: string; remarks: string }) => {
-      await api.put(`/complaints/${id}`, { status, remarks });
+  const statusUpdateMutation = useMutation({
+    mutationFn: async ({ id, formData }: { id: string; formData: FormData }) => {
+      await api.put(`/complaints/${id}/status`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['complaintsList'] });
-      setIsDetailOpen(false);
-      setSelected(null);
+      queryClient.invalidateQueries({ queryKey: ['caseHistory', selected?._id] });
+      setUpdateError(null);
+      setEvidenceFiles([]);
+      setUpdateRemarks('');
+      setCctvCameraId('');
+      setConfidenceScore('');
+      setDetectionTimestamp('');
+      // Switch to history tab to show the newly added entry
+      setActiveTab('history');
+    },
+    onError: (err: any) => {
+      const d = err.response?.data;
+      setUpdateError(d?.message || 'Failed to update status.');
     },
   });
 
-  const openDetail = (t: ComplaintItem) => {
+  const openDetail = (t: Complaint) => {
     setSelected(t);
-    setStatusVal(t.status);
-    setRemarks(t.remarks || '');
+    setNewStatus(t.status);
+    setUpdateRemarks('');
+    setCctvCameraId('');
+    setConfidenceScore('');
+    setDetectionTimestamp('');
+    setEvidenceFiles([]);
+    setUpdateError(null);
+    setActiveTab('details');
     setIsDetailOpen(true);
   };
 
-  const handleUpdate = (e: React.FormEvent) => {
+  const handleStatusUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selected) updateMutation.mutate({ id: selected._id, status: statusVal, remarks });
+    if (!selected) return;
+
+    const fd = new FormData();
+    fd.append('status', newStatus);
+    if (updateRemarks) fd.append('remarks', updateRemarks);
+    if (cctvCameraId) fd.append('cctvCameraId', cctvCameraId);
+    if (confidenceScore) fd.append('confidenceScore', confidenceScore);
+    if (detectionTimestamp) fd.append('detectionTimestamp', new Date(detectionTimestamp).toISOString());
+    evidenceFiles.forEach((f) => fd.append('evidenceImages', f));
+
+    statusUpdateMutation.mutate({ id: selected._id, formData: fd });
   };
 
-  const filtered = tickets.filter(t => {
+  const handleEvidenceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setEvidenceFiles(Array.from(e.target.files));
+    }
+  };
+
+  const filtered = tickets.filter((t) => {
     const q = searchQuery.toLowerCase();
     return (
-      t.name.toLowerCase().includes(q) ||
-      t.type.toLowerCase().includes(q) ||
-      t.description.toLowerCase().includes(q)
+      (t.missingPersonName && t.missingPersonName.toLowerCase().includes(q)) ||
+      (t.reporterName && t.reporterName.toLowerCase().includes(q)) ||
+      (t.complaintId && t.complaintId.toLowerCase().includes(q)) ||
+      (t.lastSeenLocation && t.lastSeenLocation.toLowerCase().includes(q))
     );
   });
 
-  // Count status updates (resolved/closed) for viewer notification banner
-  const updatedComplaints = tickets.filter(t => t.status === 'resolved' || t.status === 'closed');
-
-  /* ── VIEWER VIEW ─────────────────────────────────── */
+  // ── VIEWER VIEW ──────────────────────────────────────────
   if (isViewer) {
     return (
       <div className="space-y-5 max-w-3xl">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">My Complaints</h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Track your submitted complaints and view status updates. Auto-refreshes every 30 seconds.
-            </p>
+            <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">My Reports</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Track your submitted missing person reports. Auto-refreshes every 30 seconds.</p>
           </div>
-          <Button onClick={() => navigate('/file-case')}>File New Complaint</Button>
+          <Button onClick={() => navigate('/file-case')}>File New Report</Button>
         </div>
-
-        {/* Notification banner for resolved/closed complaints */}
-        {updatedComplaints.length > 0 && (
-          <div className="border border-slate-300 bg-slate-50 px-4 py-3">
-            <p className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
-              Status Update — {updatedComplaints.length} complaint{updatedComplaints.length > 1 ? 's' : ''} resolved or closed.
-              Click any row to view operator remarks.
-            </p>
-          </div>
-        )}
 
         {tickets.length === 0 && !isLoading && (
           <div className="border border-slate-200 bg-slate-50 px-5 py-10 text-center">
-            <p className="text-xs font-black text-slate-600 uppercase tracking-widest">No complaints filed yet.</p>
-            <p className="text-[11px] text-slate-400 mt-1">Use "File New Complaint" to submit a report.</p>
+            <p className="text-xs font-black text-slate-600 uppercase tracking-widest">No reports filed yet.</p>
+            <p className="text-[11px] text-slate-400 mt-1">Click "File New Report" to submit a missing person report.</p>
           </div>
         )}
 
-        {/* Complaint cards */}
         <div className="space-y-3">
           {isLoading ? (
             <p className="text-[11px] text-slate-400 uppercase tracking-wider px-1">Loading...</p>
           ) : (
-            filtered.map(t => (
+            filtered.map((t) => (
               <div
                 key={t._id}
                 onClick={() => openDetail(t)}
                 className="border border-slate-200 bg-white px-5 py-4 cursor-pointer hover:border-slate-400 transition-colors"
               >
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-4">
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
+                      {t.complaintId && (
+                        <span className="text-[9px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5">
+                          {t.complaintId}
+                        </span>
+                      )}
                       <p className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                        {t.type.replace(/_/g, ' ')}
+                        {t.missingPersonName || 'Unknown Subject'}
                       </p>
-                      <Badge variant={priorityVariant(t.priority)}>{t.priority.toUpperCase()}</Badge>
-                      <Badge variant={statusVariant(t.status)}>{t.status.replace(/_/g, ' ').toUpperCase()}</Badge>
+                      <Badge variant={PRIORITY_VARIANT[t.priority]}>{t.priority.toUpperCase()}</Badge>
+                      <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABELS[t.status]}</Badge>
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed line-clamp-2">{t.description}</p>
+                    <p className="text-[11px] text-slate-500">
+                      <span className="font-bold">Last Seen:</span> {t.lastSeenLocation}
+                    </p>
                     {t.remarks && (
                       <div className="border-l-2 border-slate-400 pl-2 mt-2">
-                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Operator Remark:</p>
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Latest Remark:</p>
                         <p className="text-[11px] text-slate-700">{t.remarks}</p>
                       </div>
                     )}
                   </div>
-                  <div className="text-right shrink-0 ml-4">
-                    <p className="text-[10px] font-mono text-slate-400">
-                      {new Date(t.createdAt).toLocaleDateString()}
-                    </p>
-                    <p className="text-[10px] font-mono text-slate-300">
-                      Updated: {new Date(t.updatedAt).toLocaleDateString()}
-                    </p>
-                  </div>
+                  <p className="text-[10px] font-mono text-slate-400 shrink-0">
+                    {new Date(t.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
             ))
           )}
         </div>
 
-        {/* Detail modal for viewer — read only */}
+        {/* Viewer detail modal */}
         {selected && (
-          <Modal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Complaint Details">
-            <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Category</p>
-                  <p className="font-bold text-slate-900 mt-0.5">{selected.type.replace(/_/g, ' ').toUpperCase()}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Priority</p>
-                  <Badge variant={priorityVariant(selected.priority)}>{selected.priority.toUpperCase()}</Badge>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Status</p>
-                  <Badge variant={statusVariant(selected.status)}>{selected.status.replace(/_/g, ' ').toUpperCase()}</Badge>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Filed On</p>
-                  <p className="font-mono text-slate-600 mt-0.5">{new Date(selected.createdAt).toLocaleString()}</p>
-                </div>
+          <Modal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} title={`Report — ${selected.complaintId || selected._id}`}>
+            <div className="space-y-4">
+              {/* Tabs */}
+              <div className="flex border-b border-slate-200">
+                {(['details', 'history'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-2 text-[11px] font-black uppercase tracking-wider border-b-2 transition-colors ${
+                      activeTab === tab
+                        ? 'border-black text-black'
+                        : 'border-transparent text-slate-400 hover:text-slate-700'
+                    }`}
+                  >
+                    {tab === 'details' ? 'Case Details' : 'Timeline'}
+                  </button>
+                ))}
               </div>
 
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Description</p>
-                <p className="bg-slate-50 border border-slate-200 px-3 py-2 text-slate-800 leading-relaxed whitespace-pre-wrap">
-                  {selected.description}
-                </p>
-              </div>
-
-              {selected.attachments && selected.attachments.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Suspect Photos / Evidence</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selected.attachments.map((url, i) => (
-                      <a
-                        key={i}
-                        href={getImageUrl(url)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="border border-slate-200 p-0.5 bg-white hover:border-slate-500 transition-colors"
-                      >
-                        <img
-                          src={getImageUrl(url)}
-                          alt={`Evidence ${i + 1}`}
-                          className="h-20 w-20 object-cover"
-                        />
-                      </a>
-                    ))}
+              {activeTab === 'details' ? (
+                <div className="space-y-4 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={STATUS_VARIANT[selected.status]}>{STATUS_LABELS[selected.status]}</Badge>
+                    <Badge variant={PRIORITY_VARIANT[selected.priority]}>{selected.priority.toUpperCase()}</Badge>
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoRow label="Subject" value={selected.missingPersonName || 'Unknown'} />
+                    <InfoRow label="Age / Gender" value={`${selected.age || '?'} / ${selected.gender}`} />
+                    <InfoRow label="Last Seen" value={selected.lastSeenLocation} />
+                    <InfoRow label="Last Seen Time" value={new Date(selected.lastSeenTime).toLocaleString()} />
+                    <InfoRow label="Clothes Worn" value={selected.clothesWorn} />
+                    <InfoRow label="Identifying Marks" value={selected.identifyingMarks} />
+                  </div>
+                  {selected.remarks && (
+                    <div className="border-l-2 border-slate-400 pl-3">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Latest Remark</p>
+                      <p className="text-[11px] text-slate-700 mt-0.5">{selected.remarks}</p>
+                    </div>
+                  )}
                 </div>
+              ) : (
+                <CaseHistoryTimeline complaintId={selected._id} />
               )}
 
-              <div className="border-t border-slate-200 pt-3">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Operator Remarks</p>
-                {selected.remarks ? (
-                  <p className="bg-slate-50 border border-slate-200 px-3 py-2 text-slate-800 leading-relaxed">
-                    {selected.remarks}
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-slate-400">No remarks added yet. Your complaint is under review.</p>
-                )}
-              </div>
-
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-end pt-2 border-t border-slate-100">
                 <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Close</Button>
               </div>
             </div>
@@ -243,21 +286,21 @@ export const ComplaintManagement: React.FC = () => {
     );
   }
 
-  /* ── ADMIN / OPERATOR VIEW ─────────────────────────── */
+  // ── ADMIN / OPERATOR VIEW ────────────────────────────────
   return (
     <div className="space-y-5">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">Complaints & Tickets</h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">Manage and respond to all submitted security complaints.</p>
+          <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">Missing Person Reports</h1>
+          <p className="text-xs text-slate-500 mt-0.5">Manage cases, update status, and view investigation timelines.</p>
         </div>
-        <Button onClick={() => navigate('/file-case')}>New Complaint</Button>
+        <Button onClick={() => navigate('/file-case')}>New Report</Button>
       </div>
 
       <Input
-        placeholder="Search by name, type, description..."
+        placeholder="Search by name, complaint ID, location..."
         value={searchQuery}
-        onChange={e => setSearchQuery(e.target.value)}
+        onChange={(e) => setSearchQuery(e.target.value)}
       />
 
       <Card>
@@ -266,8 +309,9 @@ export const ComplaintManagement: React.FC = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                  <th className="px-5 py-3">Complainant</th>
-                  <th className="px-5 py-3">Category</th>
+                  <th className="px-5 py-3">Complaint ID</th>
+                  <th className="px-5 py-3">Subject</th>
+                  <th className="px-5 py-3">Reporter</th>
                   <th className="px-5 py-3">Priority</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Filed</th>
@@ -277,38 +321,39 @@ export const ComplaintManagement: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center text-[11px] text-slate-400 uppercase tracking-wider">
+                    <td colSpan={7} className="p-6 text-center text-[11px] text-slate-400 uppercase tracking-wider">
                       Loading...
                     </td>
                   </tr>
                 ) : filtered.length > 0 ? (
-                  filtered.map(t => (
+                  filtered.map((t) => (
                     <tr key={t._id} className="hover:bg-slate-50">
+                      <td className="px-5 py-3 font-mono text-[11px] text-slate-600">{t.complaintId || '—'}</td>
+                      <td className="px-5 py-3 font-semibold text-slate-900">{t.missingPersonName || 'Unknown'}</td>
                       <td className="px-5 py-3">
-                        <p className="font-bold text-slate-900">{t.name}</p>
-                        <p className="text-[10px] text-slate-400">{t.email}</p>
-                      </td>
-                      <td className="px-5 py-3 font-semibold text-slate-700">
-                        {t.type.replace(/_/g, ' ').toUpperCase()}
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge variant={priorityVariant(t.priority)}>{t.priority.toUpperCase()}</Badge>
+                        <p className="font-bold text-slate-900">{t.reporterName}</p>
+                        <p className="text-[10px] text-slate-400">{t.reporterMobile}</p>
                       </td>
                       <td className="px-5 py-3">
-                        <Badge variant={statusVariant(t.status)}>{t.status.replace(/_/g, ' ').toUpperCase()}</Badge>
+                        <Badge variant={PRIORITY_VARIANT[t.priority]}>{t.priority.toUpperCase()}</Badge>
+                      </td>
+                      <td className="px-5 py-3">
+                        <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABELS[t.status]}</Badge>
                       </td>
                       <td className="px-5 py-3 font-mono text-[11px] text-slate-400">
                         {new Date(t.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <Button variant="outline" size="sm" onClick={() => openDetail(t)}>View</Button>
+                        <Button variant="outline" size="sm" onClick={() => openDetail(t)}>
+                          Manage
+                        </Button>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center text-[11px] text-slate-400 uppercase tracking-wider">
-                      No complaints found.
+                    <td colSpan={7} className="p-6 text-center text-[11px] text-slate-400 uppercase tracking-wider">
+                      No reports found.
                     </td>
                   </tr>
                 )}
@@ -318,86 +363,232 @@ export const ComplaintManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Detail + Update Modal for admin/operator */}
+      {/* ── Detail / Manage Modal ─────────────────────────── */}
       {selected && (
-        <Modal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Complaint Details">
-          <div className="space-y-4 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Complainant</p>
-                <p className="font-bold text-slate-900 mt-0.5">{selected.name}</p>
-                <p className="text-[10px] text-slate-400">{selected.email}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Filed</p>
-                <p className="font-mono text-slate-600 mt-0.5">{new Date(selected.createdAt).toLocaleString()}</p>
-              </div>
+        <Modal
+          isOpen={isDetailOpen}
+          onClose={() => setIsDetailOpen(false)}
+          title={`Case — ${selected.complaintId || selected._id}`}
+        >
+          <div className="space-y-4">
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200">
+              {(['details', 'history'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-4 py-2 text-[11px] font-black uppercase tracking-wider border-b-2 transition-colors ${
+                    activeTab === tab
+                      ? 'border-black text-black'
+                      : 'border-transparent text-slate-400 hover:text-slate-700'
+                  }`}
+                >
+                  {tab === 'details' ? 'Case Details' : 'Investigation Timeline'}
+                </button>
+              ))}
             </div>
 
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Description</p>
-              <p className="bg-slate-50 border border-slate-200 px-3 py-2 text-slate-800 leading-relaxed whitespace-pre-wrap">
-                {selected.description}
-              </p>
-            </div>
+            {activeTab === 'details' ? (
+              <div className="space-y-5 text-xs max-h-[60vh] overflow-y-auto pr-1">
+                {/* Status badges */}
+                <div className="flex gap-2 flex-wrap">
+                  <Badge variant={STATUS_VARIANT[selected.status]}>{STATUS_LABELS[selected.status]}</Badge>
+                  <Badge variant={PRIORITY_VARIANT[selected.priority]}>{selected.priority.toUpperCase()}</Badge>
+                </div>
 
-            {selected.attachments && selected.attachments.length > 0 && (
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Suspect Photos / Evidence</p>
-                <div className="flex flex-wrap gap-2">
-                  {selected.attachments.map((url, i) => (
-                    <a
-                      key={i}
-                      href={getImageUrl(url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="border border-slate-200 p-0.5 bg-white hover:border-slate-500 transition-colors"
-                    >
-                      <img
-                        src={getImageUrl(url)}
-                        alt={`Evidence ${i + 1}`}
-                        className="h-20 w-20 object-cover"
+                {/* Missing Person */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-100 pb-1">
+                    Missing Person
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <InfoRow label="Full Name" value={selected.missingPersonName || 'Unknown'} />
+                    <InfoRow label="Age" value={selected.age} />
+                    <InfoRow label="Gender" value={selected.gender} />
+                    <InfoRow label="Height" value={selected.height} />
+                    <InfoRow label="Weight" value={selected.weight} />
+                    <InfoRow label="Skin Tone" value={selected.skinTone} />
+                    <InfoRow label="Hair Color" value={selected.hairColor} />
+                    <InfoRow label="Eye Color" value={selected.eyeColor} />
+                    <InfoRow label="Last Seen Location" value={selected.lastSeenLocation} />
+                    <InfoRow label="Last Seen Time" value={new Date(selected.lastSeenTime).toLocaleString()} />
+                  </div>
+                  {selected.clothesWorn && (
+                    <div className="mt-3">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Clothes Worn</p>
+                      <p className="text-xs text-slate-700 mt-0.5 whitespace-pre-wrap">{selected.clothesWorn}</p>
+                    </div>
+                  )}
+                  {selected.identifyingMarks && (
+                    <div className="mt-3">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Identifying Marks</p>
+                      <p className="text-xs text-slate-700 mt-0.5 whitespace-pre-wrap">{selected.identifyingMarks}</p>
+                    </div>
+                  )}
+                  {selected.medicalConditions && (
+                    <div className="mt-3">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Medical Conditions</p>
+                      <p className="text-xs text-slate-700 mt-0.5 whitespace-pre-wrap">{selected.medicalConditions}</p>
+                    </div>
+                  )}
+                  {selected.additionalDescription && (
+                    <div className="mt-3">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Additional Info</p>
+                      <p className="text-xs text-slate-700 mt-0.5 whitespace-pre-wrap">{selected.additionalDescription}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Photos */}
+                {selected.attachments && selected.attachments.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">Photos</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selected.attachments.map((url, i) => (
+                        <a key={i} href={getImageUrl(url)} target="_blank" rel="noreferrer"
+                          className="border border-slate-200 p-0.5 hover:border-slate-500 transition-colors">
+                          <img src={getImageUrl(url)} alt={`Photo ${i + 1}`} className="h-20 w-20 object-cover" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Complainant */}
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-100 pb-1">
+                    Complainant
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <InfoRow label="Name" value={selected.reporterName} />
+                    <InfoRow label="Relationship" value={selected.reporterRelationship} />
+                    <InfoRow label="Mobile" value={selected.reporterMobile} />
+                    <InfoRow label="Alt Mobile" value={selected.reporterAltMobile} />
+                    <InfoRow label="Email" value={selected.reporterEmail} />
+                    <InfoRow label="Govt ID" value={selected.reporterGovtId} />
+                  </div>
+                  {selected.reporterAddress && (
+                    <div className="mt-2">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Address</p>
+                      <p className="text-xs text-slate-700 mt-0.5">{selected.reporterAddress}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Police */}
+                {(selected.policeStation || selected.officerName) && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-100 pb-1">
+                      Police Case
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <InfoRow label="Police Station" value={selected.policeStation} />
+                      <InfoRow label="Officer Name" value={selected.officerName} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Status Update Form (operator/admin only) */}
+                {isOperator && (
+                  <form onSubmit={handleStatusUpdate} className="border-t border-slate-200 pt-4 space-y-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Update Case Status</p>
+
+                    {updateError && (
+                      <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 px-3 py-2">{updateError}</p>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-700">New Status *</label>
+                        <select
+                          value={newStatus}
+                          onChange={(e) => setNewStatus(e.target.value as ComplaintStatus)}
+                          className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black"
+                          required
+                        >
+                          {ALL_STATUSES.map((s) => (
+                            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-700">CCTV Camera ID</label>
+                        <input
+                          type="text"
+                          value={cctvCameraId}
+                          onChange={(e) => setCctvCameraId(e.target.value)}
+                          placeholder="e.g. CAM-042"
+                          className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-700">Confidence Score (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={confidenceScore}
+                          onChange={(e) => setConfidenceScore(e.target.value)}
+                          placeholder="e.g. 87"
+                          className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-700">Detection Timestamp</label>
+                        <input
+                          type="datetime-local"
+                          value={detectionTimestamp}
+                          onChange={(e) => setDetectionTimestamp(e.target.value)}
+                          className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-700">Remarks / Investigation Notes</label>
+                      <textarea
+                        value={updateRemarks}
+                        onChange={(e) => setUpdateRemarks(e.target.value)}
+                        rows={3}
+                        placeholder="Investigation updates, observations, next steps..."
+                        className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black resize-none"
                       />
-                    </a>
-                  ))}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-700">
+                        Evidence / Detection Screenshots
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleEvidenceChange}
+                        className="text-[11px] text-slate-600"
+                      />
+                      {evidenceFiles.length > 0 && (
+                        <p className="text-[10px] text-slate-400 mt-1">{evidenceFiles.length} file(s) selected</p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3 justify-end">
+                      <Button type="button" variant="outline" onClick={() => setIsDetailOpen(false)}>Close</Button>
+                      <Button type="submit" isLoading={statusUpdateMutation.isPending}>Update Status</Button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto pr-1">
+                <CaseHistoryTimeline complaintId={selected._id} />
+                <div className="flex justify-end pt-4 border-t border-slate-100 mt-4">
+                  <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Close</Button>
                 </div>
               </div>
             )}
-
-            <form onSubmit={handleUpdate} className="border-t border-slate-200 pt-4 space-y-3">
-              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">Update Status & Remarks</p>
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-700">Status</label>
-                <select
-                  value={statusVal}
-                  onChange={e => setStatusVal(e.target.value as any)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black"
-                >
-                  <option value="open">Open</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-700">Remarks / Response</label>
-                <textarea
-                  value={remarks}
-                  onChange={e => setRemarks(e.target.value)}
-                  rows={3}
-                  placeholder="Actions taken, resolution details..."
-                  className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black resize-none"
-                />
-              </div>
-              <div className="flex gap-3 justify-end pt-1">
-                <Button type="button" variant="outline" onClick={() => setIsDetailOpen(false)}>Cancel</Button>
-                <Button type="submit" isLoading={updateMutation.isPending}>Save Changes</Button>
-              </div>
-            </form>
           </div>
         </Modal>
       )}
     </div>
   );
 };
-export default ComplaintManagement;

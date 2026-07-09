@@ -24,9 +24,18 @@ export const env = {
     secretKey: process.env.MINIO_SECRET_KEY || 'minioadmin',
     bucket: process.env.MINIO_BUCKET || 'sentinel-bucket',
   },
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
+  },
 };
 
 // Validate critical variables
 if (!process.env.JWT_SECRET) {
   console.warn('⚠️  JWT_SECRET not set. Using fallback (unsafe for production).');
+}
+
+if (!process.env.TWILIO_ACCOUNT_SID) {
+  console.warn('⚠️  TWILIO_ACCOUNT_SID not set. SMS notifications will be disabled.');
 }

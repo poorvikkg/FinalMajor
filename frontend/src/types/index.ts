@@ -101,31 +101,56 @@ export interface UnknownFace {
   createdAt: string;
 }
 
-export type ComplaintType =
-  | 'camera_issue'
-  | 'false_detection'
-  | 'system_error'
-  | 'unauthorized_access'
-  | 'other';
+// ──────────────────────────────────────────
+// Complaint (Missing Person Report) Types
+// ──────────────────────────────────────────
 
-export type ComplaintStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
-export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
+export type ComplaintStatus =
+  | 'complaint_registered'
+  | 'under_investigation'
+  | 'searching_cctv'
+  | 'possible_match_found'
+  | 'match_confirmed'
+  | 'false_match'
+  | 'person_found'
+  | 'case_closed';
 
 export interface Complaint {
   _id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  type: ComplaintType;
-  cameraId?: {
-    _id: string;
-    name: string;
-    location: string;
-  };
-  incidentAt: string;
-  description: string;
-  attachment?: string;
-  priority: ComplaintPriority;
+  complaintId?: string;
+
+  // Missing Person
+  missingPersonName?: string;
+  age?: string;
+  gender: 'male' | 'female' | 'other' | 'unknown';
+  height?: string;
+  weight?: string;
+  skinTone?: string;
+  hairColor?: string;
+  eyeColor?: string;
+  lastSeenLocation: string;
+  lastSeenTime: string;
+  clothesWorn?: string;
+  identifyingMarks?: string;
+  medicalConditions?: string;
+  additionalDescription?: string;
+  attachments?: string[];
+
+  // Complainant
+  reporterName: string;
+  reporterMobile: string;
+  reporterAltMobile?: string;
+  reporterEmail?: string;
+  reporterRelationship?: string;
+  reporterAddress?: string;
+  reporterGovtId?: string;
+
+  // Police Case
+  policeStation?: string;
+  officerName?: string;
+  firNumber?: string;  // FIR Number assigned by police
+
+  // Case Management
   status: ComplaintStatus;
   assignedTo?: {
     _id: string;
@@ -141,6 +166,31 @@ export interface Complaint {
   createdAt: string;
   updatedAt: string;
 }
+
+// ──────────────────────────────────────────
+// Case History
+// ──────────────────────────────────────────
+
+export interface CaseHistory {
+  _id: string;
+  complaintId: string;
+  status: ComplaintStatus;
+  remarks?: string;
+  evidenceImages?: string[];
+  cctvCameraId?: string;
+  detectionTimestamp?: string;
+  confidenceScore?: number;
+  updatedBy?: {
+    _id: string;
+    name: string;
+  };
+  smsSent: boolean;
+  createdAt: string;
+}
+
+// ──────────────────────────────────────────
+// Dashboard / System Types
+// ──────────────────────────────────────────
 
 export interface SystemStats {
   users: { total: number };
@@ -171,8 +221,9 @@ export interface RecentAlert {
 
 export interface RecentComplaint {
   _id: string;
-  name: string;
-  type: ComplaintType;
+  complaintId?: string;
+  reporterName: string;
+  missingPersonName?: string;
   priority: ComplaintPriority;
   status: ComplaintStatus;
   createdAt: string;

@@ -3,10 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { StatCard } from '../../components/shared/StatCard';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar,
-} from 'recharts';
 import api from '../../api';
 
 interface DashboardData {
@@ -63,24 +59,11 @@ export const Dashboard: React.FC = () => {
     },
   });
 
-  const activityData = data?.stats ? [
-    { name: 'Detections', detections: data.stats.recognitions?.today ?? 0, unknown: data.stats.recognitions?.unknownDetections ?? 0 }
-  ] : [];
-
-  const cameraUsageData = data?.stats ? [
-    { name: 'Online', count: data.stats.cameras?.online ?? 0 },
-    { name: 'Offline', count: data.stats.cameras?.offline ?? 0 },
-    { name: 'Maintenance', count: data.stats.cameras?.maintenance ?? 0 },
-  ] : [];
-
   const stats = data?.stats;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">Security Command Dashboard</h1>
-        <p className="text-xs text-slate-500 font-medium mt-1">Real-time surveillance status and system overview.</p>
-      </div>
+      <h1 className="text-2xl font-black text-slate-900 tracking-widest uppercase font-heading">Dashboard</h1>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -92,61 +75,16 @@ export const Dashboard: React.FC = () => {
         <StatCard
           title="Recognitions Today"
           value={isLoading ? '—' : stats?.recognitions?.today ?? 0}
-          trend={{ value: '14.5%', isPositive: true }}
         />
         <StatCard
           title="Unknown Detections"
           value={isLoading ? '—' : stats?.recognitions?.unknownDetections ?? 0}
-          trend={{ value: '4.8%', isPositive: false }}
         />
         <StatCard
           title="Videos Processed"
           value={isLoading ? '—' : stats?.videos?.processed ?? 0}
           description="Completed recordings"
         />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Detections Today</CardTitle>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={activityData}>
-                <defs>
-                  <linearGradient id="colorDet" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1e293b" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#1e293b" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Area type="monotone" dataKey="detections" stroke="#1e293b" fill="url(#colorDet)" strokeWidth={1.5} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Camera Status</CardTitle>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={cameraUsageData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="count" fill="#475569" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Tables */}

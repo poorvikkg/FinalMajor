@@ -10,7 +10,7 @@ import { Types } from 'mongoose';
 // User Types
 // ──────────────────────────────────────────
 
-export type UserRole = 'admin' | 'operator' | 'viewer';
+export type UserRole = 'admin' | 'station';
 
 export interface IUser {
   _id: Types.ObjectId;

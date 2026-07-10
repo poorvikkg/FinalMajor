@@ -12,15 +12,14 @@ import { uploadToMinio } from '../services/minio.service';
 import fs from 'fs';
 import axios from 'axios';
 import FormData from 'form-data';
+import { env } from '../config/env';
 
 export async function getAll(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { page, limit } = getPaginationOptions(req);
     const status = req.query.status as string | undefined;
     const priority = req.query.priority as string | undefined;
-    // Viewers can only see their own complaints
-    const createdBy = req.user?.role === 'viewer' ? req.user._id.toString() : undefined;
-    const { complaints, total } = await complaintService.getAllComplaints(page, limit, status, priority, createdBy);
+    const { complaints, total } = await complaintService.getAllComplaints(page, limit, status, priority);
     sendPaginated(res, 'Complaints retrieved', complaints, buildPaginationMeta(total, page, limit));
   } catch (err) {
     next(err);
@@ -77,7 +76,7 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
         const formData = new FormData();
         formData.append('user_id', userIdStr);
         formData.append('image', fileBuffer, { filename: originalName, contentType: 'image/jpeg' });
-        await axios.post('http://127.0.0.1:8000/register/', formData, {
+        await axios.post(`${env.aiServiceUrl}/register/`, formData, {
           headers: formData.getHeaders(),
           timeout: 15000,
         });

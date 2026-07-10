@@ -7,7 +7,6 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { CaseHistoryTimeline } from '../../components/shared/CaseHistoryTimeline';
-import { useAuthStore } from '../../store/auth';
 import type { Complaint, ComplaintStatus } from '../../types';
 import api from '../../api';
 
@@ -66,11 +65,10 @@ const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, va
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export const ComplaintManagement: React.FC = () => {
-  const { user } = useAuthStore();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const isViewer = user?.role === 'viewer';
-  const isOperator = user?.role === 'operator' || user?.role === 'admin';
+  const isViewer = false;
+  const isOperator = true;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isDetailOpen, setIsDetailOpen] = useState(false);

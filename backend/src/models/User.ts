@@ -36,8 +36,8 @@ const UserSchema = new Schema<IUserDocument>(
     },
     role: {
       type: String,
-      enum: ['admin', 'operator', 'viewer'],
-      default: 'viewer',
+      enum: ['admin', 'station'],
+      default: 'station',
     },
     avatar: { type: String },
     isActive: { type: Boolean, default: true },

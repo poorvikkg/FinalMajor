@@ -15,15 +15,15 @@ export const StatCard: React.FC<StatCardProps> = ({ title, value, description, t
   return (
     <Card>
       <CardContent className="p-5">
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{title}</p>
-        <p className="text-3xl font-black text-slate-900 mt-1">{value}</p>
+        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">{title}</p>
+        <p className="text-4xl font-black text-slate-900 mt-2 font-heading tracking-tight">{value}</p>
         {trend && (
-          <p className={`text-[11px] font-bold mt-1 ${trend.isPositive ? 'text-slate-500' : 'text-slate-500'}`}>
-            {trend.isPositive ? '+' : '-'}{trend.value} vs last week
+          <p className={`text-[12px] font-bold mt-2 flex items-center gap-1 ${trend.isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+            {trend.isPositive ? '↑' : '↓'} {trend.value} <span className="text-slate-400 font-normal">vs last week</span>
           </p>
         )}
         {description && !trend && (
-          <p className="text-[11px] text-slate-400 mt-1">{description}</p>
+          <p className="text-[12px] text-slate-500 mt-2 font-medium">{description}</p>
         )}
       </CardContent>
     </Card>

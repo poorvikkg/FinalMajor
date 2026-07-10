@@ -18,13 +18,13 @@ router.use(authenticate);
 router.get('/', cameraController.getAll);
 router.get('/:id', cameraController.getOne);
 
-// Only admin and operator can add/edit/delete cameras
-router.post('/', requireRole('admin', 'operator'), validate(createCameraSchema), cameraController.create);
-router.put('/:id', requireRole('admin', 'operator'), validate(updateCameraSchema), cameraController.update);
+// Only admin can add/edit/delete cameras
+router.post('/', requireRole('admin'), validate(createCameraSchema), cameraController.create);
+router.put('/:id', requireRole('admin'), validate(updateCameraSchema), cameraController.update);
 router.delete('/:id', requireRole('admin'), cameraController.remove);
 
 // AI integration endpoints
-router.post('/:id/start', requireRole('admin', 'operator'), cameraController.startCamera);
-router.post('/:id/stop', requireRole('admin', 'operator'), cameraController.stopCamera);
+router.post('/:id/start', requireRole('admin'), cameraController.startCamera);
+router.post('/:id/stop', requireRole('admin'), cameraController.stopCamera);
 
 export default router;

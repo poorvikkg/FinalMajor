@@ -33,12 +33,7 @@ const ProtectedRoute: React.FC<ProtectedProps> = ({ children, allowedRoles }) =>
     return <Navigate to="/login" replace />;
   }
 
-  // Viewer role: redirect everything except /complaints and /file-case to /complaints
-  if (user?.role === 'viewer') {
-    if (allowedRoles && !allowedRoles.includes('viewer')) {
-      return <Navigate to="/complaints" replace />;
-    }
-  }
+  // Viewer role checks removed since we only have admin/station
 
   // Other restricted pages
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {

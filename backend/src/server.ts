@@ -12,6 +12,9 @@ import { initializeMinio } from './services/minio.service';
 import { env } from './config/env';
 import { logger } from './config/logger';
 
+// Initialize BullMQ Workers
+import './queues/video.queue';
+
 async function startServer(): Promise<void> {
   // 1. Connect to MongoDB first — fail fast if DB is unavailable
   await connectDatabase();

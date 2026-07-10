@@ -7,15 +7,15 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 export const Badge: React.FC<BadgeProps> = ({ children, className, variant = 'neutral', ...props }) => {
-  const baseStyles = 'inline-flex items-center px-2 py-0.5 rounded-none text-[10px] font-bold uppercase tracking-wider border select-none';
+  const baseStyles = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border select-none transition-colors';
   
   const variants = {
-    primary: 'bg-slate-50 text-slate-800 border-slate-300',
-    success: 'bg-emerald-50 text-emerald-800 border-emerald-300',
-    warning: 'bg-amber-50 text-amber-800 border-amber-300',
-    danger: 'bg-red-50 text-red-800 border-red-300',
-    info: 'bg-sky-50 text-sky-800 border-sky-300',
-    neutral: 'bg-slate-50 text-slate-700 border-slate-350',
+    primary: 'bg-slate-100 text-slate-800 border-slate-200/60',
+    success: 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
+    warning: 'bg-amber-50 text-amber-700 border-amber-200/60',
+    danger: 'bg-red-50 text-red-700 border-red-200/60',
+    info: 'bg-sky-50 text-sky-700 border-sky-200/60',
+    neutral: 'bg-slate-50 text-slate-600 border-slate-200/60',
   };
 
   return (

@@ -5,7 +5,7 @@
  * Kept separate from server.ts so it can be imported for testing.
  */
 
-import express from 'express';
+import express, { Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -15,7 +15,7 @@ import { env } from './config/env';
 import routes from './routes';
 import { errorHandler } from './middlewares/error.middleware';
 
-const app = express();
+const app: Application = express();
 
 // ── Security ────────────────────────────────────────────
 // Helmet sets security HTTP headers (XSS protection, HSTS, etc.)

@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'operator' | 'viewer';
+export type UserRole = 'admin' | 'station';
 
 export interface User {
   _id: string;
@@ -104,6 +104,8 @@ export interface UnknownFace {
 // ──────────────────────────────────────────
 // Complaint (Missing Person Report) Types
 // ──────────────────────────────────────────
+
+export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export type ComplaintStatus =
   | 'complaint_registered'

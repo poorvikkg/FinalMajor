@@ -26,6 +26,9 @@ export async function findAllLogs(
   return { logs: logs as any, total };
 }
 
+export async function findLogById(id: string): Promise<IRecognitionLogDocument | null> {
+  return RecognitionLog.findById(id).populate('cameraId', 'name location').lean() as unknown as IRecognitionLogDocument;
+}
 export async function createLog(
   data: Partial<IRecognitionLogDocument>
 ): Promise<IRecognitionLogDocument> {

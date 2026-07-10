@@ -32,17 +32,12 @@ router.post(
   complaintController.create
 );
 
-// Operators/admins update case status (dedicated endpoint with evidence upload)
-router.put(
-  '/:id/status',
-  requireRole('admin', 'operator'),
-  uploadAttachment.array('evidenceImages', 10),
-  validate(updateComplaintStatusSchema),
-  complaintController.updateStatus
-);
+// Admin & Station roles can update status/priority
+router.patch('/:id/status', requireRole('admin', 'station'), validate(updateComplaintStatusSchema), complaintController.updateStatus);
+
 
 // Admin legacy update (direct field overrides)
-router.put('/:id', requireRole('admin', 'operator'), validate(updateComplaintSchema), complaintController.update);
+router.put('/:id', requireRole('admin'), validate(updateComplaintSchema), complaintController.update);
 router.delete('/:id', requireRole('admin'), complaintController.remove);
 
 export default router;

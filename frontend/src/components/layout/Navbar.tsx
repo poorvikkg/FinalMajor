@@ -66,25 +66,23 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 border-b border-slate-200 bg-white px-6 flex items-center justify-between">
-      {/* Title */}
-      <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">
-        Official Surveillance Control Console
-      </h2>
+    <header className="h-[72px] sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur-md px-8 flex items-center justify-between">
+      {/* Spacer */}
+      <div />
 
       {/* Right controls */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
         {/* Notifications */}
         <div className="relative">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 rounded hover:bg-slate-100 text-slate-800 relative"
+            className="p-2.5 rounded-xl hover:bg-slate-100 text-slate-600 hover:text-slate-900 relative transition-colors"
           >
-            <Bell className="h-4.5 w-4.5" />
+            <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 h-3.5 min-w-[14px] px-1 rounded-full bg-black text-white text-[8px] font-mono font-bold flex items-center justify-center">
+              <span className="absolute top-1.5 right-1.5 h-4 min-w-[16px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
                 {unreadCount}
               </span>
             )}
@@ -94,46 +92,62 @@ export const Navbar: React.FC = () => {
           {showNotifications && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowNotifications(false)} />
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded border border-slate-300 shadow-lg z-20 overflow-hidden">
-                <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                  <span className="text-xs font-bold uppercase text-slate-900 tracking-wider">Alerts Queue</span>
+              <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl border border-slate-200 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] z-20 overflow-hidden transform origin-top-right transition-all">
+                <div className="px-5 py-3.5 bg-slate-50/80 backdrop-blur-sm border-b border-slate-100 flex justify-between items-center">
+                  <span className="text-xs font-bold uppercase text-slate-800 tracking-wider font-heading">Alerts Queue</span>
                   {unreadCount > 0 && (
                     <button
                       onClick={() => markAllReadMutation.mutate()}
-                      className="text-[9px] font-black uppercase text-slate-500 hover:text-black underline flex items-center gap-1"
+                      className="text-[10px] font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1 transition-colors"
                     >
-                      <Check className="h-2.5 w-2.5" /> Mark all read
+                      <Check className="h-3 w-3" /> Mark all read
                     </button>
                   )}
                 </div>
-                <div className="divide-y divide-slate-150 max-h-64 overflow-y-auto">
+                <div className="divide-y divide-slate-50 max-h-[320px] overflow-y-auto">
                   {notifications.length > 0 ? (
                     notifications.map((notif) => (
                       <div
                         key={notif._id}
                         onClick={() => !notif.isRead && readOneMutation.mutate(notif._id)}
-                        className={`p-3 transition-colors flex gap-2.5 text-xs cursor-pointer ${
-                          notif.isRead ? 'opacity-60 bg-white hover:bg-slate-50' : 'bg-slate-50 font-semibold hover:bg-slate-100'
+                        className={`p-4 transition-all flex gap-3 text-sm cursor-pointer ${
+                          notif.isRead ? 'opacity-70 bg-white hover:bg-slate-50' : 'bg-indigo-50/30 hover:bg-indigo-50/60'
                         }`}
                       >
-                        <ShieldAlert className="h-4 w-4 text-black shrink-0 mt-0.5" />
+                        <ShieldAlert className={`h-4.5 w-4.5 shrink-0 mt-0.5 ${notif.isRead ? 'text-slate-400' : 'text-indigo-500'}`} />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-[11px] truncate uppercase tracking-wide ${getAlertStyle(notif.type)}`}>
+                          <p className={`text-xs font-bold tracking-wide ${getAlertStyle(notif.type)}`}>
                             {notif.title}
                           </p>
-                          <p className="text-[11px] text-slate-600 mt-0.5 break-words leading-tight">{notif.message}</p>
-                          <span className="text-[9px] text-slate-400 mt-1 block font-mono">
+                          <p className="text-xs text-slate-500 mt-1 break-words leading-relaxed">
+                            {notif.message.includes('Download: ') ? (
+                              <>
+                                {notif.message.split('Download: ')[0]}
+                                <a 
+                                  href={notif.message.split('Download: ')[1]} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-indigo-500 underline font-semibold ml-1"
+                                >
+                                  Download Report
+                                </a>
+                              </>
+                            ) : (
+                              notif.message
+                            )}
+                          </p>
+                          <span className="text-[10px] font-medium text-slate-400 mt-2 block">
                             {new Date(notif.createdAt).toLocaleTimeString()}
                           </span>
                         </div>
                         {!notif.isRead && (
-                          <div className="h-1.5 w-1.5 rounded-full bg-black shrink-0 self-center" />
+                          <div className="h-2 w-2 rounded-full bg-indigo-500 shrink-0 self-center shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
                         )}
                       </div>
                     ))
                   ) : (
-                    <div className="p-6 text-center text-[10px] text-slate-400 uppercase tracking-widest">
-                      No notifications
+                    <div className="p-8 text-center text-xs text-slate-400 font-medium">
+                      No new notifications
                     </div>
                   )}
                 </div>
@@ -143,15 +157,15 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Profile Info / Logout */}
-        <div className="h-5 w-px bg-slate-200" />
+        <div className="h-6 w-px bg-slate-200" />
         
         <Button
           variant="ghost"
           size="sm"
           onClick={logout}
-          className="flex items-center gap-2 text-slate-700 hover:text-black font-semibold text-xs uppercase"
+          className="flex items-center gap-2 text-slate-500 hover:text-rose-600 font-bold text-xs uppercase transition-colors rounded-xl"
         >
-          <LogOut className="h-4 w-4" />
+          <LogOut className="h-4.5 w-4.5" />
           <span>Sign Out</span>
         </Button>
       </div>

@@ -7,10 +7,11 @@ import { Types } from 'mongoose';
 import * as recognitionRepo from '../repositories/recognition.repository';
 import { addNotification } from './notification.service';
 
-export async function getLogs(page: number, limit: number, cameraId?: string, videoId?: string) {
+export async function getLogs(page: number, limit: number, cameraId?: string, videoId?: string, personName?: string) {
   const filter: Record<string, unknown> = {};
   if (cameraId) filter.cameraId = cameraId;
   if (videoId) filter.videoId = videoId;
+  if (personName) filter.personName = { $regex: new RegExp(personName, 'i') };
   return recognitionRepo.findAllLogs({ page, limit, skip: (page - 1) * limit }, filter);
 }
 

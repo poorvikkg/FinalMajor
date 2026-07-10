@@ -17,7 +17,7 @@ router.get('/unknown', recognitionController.getUnknownFaces);
 router.get('/analytics', recognitionController.getAnalytics);
 
 // AI integration endpoints
-router.post('/recognize', requireRole('admin', 'operator'), recognitionController.recognize);
+router.post('/recognize', requireRole('admin'), recognitionController.recognize);
 router.post('/register-face', requireRole('admin'), recognitionController.registerFace);
 
 export default router;

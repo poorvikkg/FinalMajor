@@ -29,6 +29,7 @@ export const env = {
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
   },
+  aiServiceUrl: process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000',
 };
 
 // Validate critical variables

@@ -15,7 +15,8 @@ export async function getLogs(req: AuthRequest, res: Response, next: NextFunctio
     const { page, limit } = getPaginationOptions(req);
     const cameraId = req.query.cameraId as string | undefined;
     const videoId = req.query.videoId as string | undefined;
-    const { logs, total } = await recognitionService.getLogs(page, limit, cameraId, videoId);
+    const personName = req.query.personName as string | undefined;
+    const { logs, total } = await recognitionService.getLogs(page, limit, cameraId, videoId, personName);
     sendPaginated(res, 'Recognition logs retrieved', logs, buildPaginationMeta(total, page, limit));
   } catch (err) {
     next(err);

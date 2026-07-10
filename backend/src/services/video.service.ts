@@ -12,6 +12,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import { logRecognition } from './recognition.service';
 import * as complaintRepo from '../repositories/complaint.repository';
+import { videoQueue } from '../queues/video.queue';
 
 export async function getAllVideos(page: number, limit: number, status?: string) {
   const filter = status ? { status } : {};
@@ -42,7 +43,6 @@ export async function saveUploadedVideo(
   });
 }
 
-// AI Integration Point: queues a video for processing
 export async function processVideo(videoId: string, targetUserId?: string) {
   const video = await videoRepo.findVideoById(videoId);
   if (!video) throw new AppError('Video not found', 404);
@@ -50,65 +50,13 @@ export async function processVideo(videoId: string, targetUserId?: string) {
   // Update status to processing
   await videoRepo.updateVideoStatus(videoId, 'processing');
 
-  try {
-    const formData = new FormData();
-    formData.append('video', fs.createReadStream(video.path), { filename: video.originalName });
-    if (targetUserId) {
-      formData.append('target_user_id', targetUserId);
-    }
-    if (video.cameraId) {
-      formData.append('camera_id', video.cameraId.toString());
-    }
+  // Push the job to BullMQ
+  await videoQueue.add('process-video', {
+    videoId,
+    targetUserId
+  });
 
-    // Process the video using the Python AI microservice (synchronously for now)
-    const aiResponse = await axios.post('http://127.0.0.1:8000/videos/process', formData, {
-      headers: {
-        ...formData.getHeaders()
-      },
-      maxBodyLength: Infinity,
-      maxContentLength: Infinity
-    });
-
-    const aiData = aiResponse.data;
-
-    // Save recognition logs (deduplicated per user_id to avoid one entry per frame)
-    const timeline = aiData.timeline || [];
-    const seenUserIds = new Set<string>();
-
-    for (const log of timeline) {
-      // Only store confirmed matches — skip unknowns
-      if (log.is_unknown || log.user_id === 'unknown') continue;
-
-      // Deduplicate: only log the first occurrence of each matched person
-      const dedupeKey = log.user_id;
-      if (seenUserIds.has(dedupeKey)) continue;
-      seenUserIds.add(dedupeKey);
-
-      let resolvedPersonName: string | undefined;
-      try {
-        const complaint = await complaintRepo.findComplaintById(log.user_id);
-        resolvedPersonName = complaint?.missingPersonName || `Subject ${log.user_id.substring(0, 6)}`;
-      } catch {
-        resolvedPersonName = `Subject ${log.user_id.substring(0, 6)}`;
-      }
-
-      await logRecognition({
-        personName: resolvedPersonName,
-        isUnknown: log.is_unknown,
-        confidence: log.confidence,
-        cameraId: video.cameraId ? video.cameraId.toString() : undefined,
-        videoId: videoId,
-        snapshot: log.snapshot_path || undefined,  // e.g. 'snapshots/snap_xxx.jpg' → served as /uploads/snapshots/snap_xxx.jpg
-      });
-    }
-
-    await videoRepo.updateVideoStatus(videoId, 'completed');
-    return { message: 'Video processing completed', videoId, data: aiData };
-  } catch (error: any) {
-    console.error('AI Service Error:', error.response?.data || error.message);
-    await videoRepo.updateVideoStatus(videoId, 'failed');
-    throw new AppError('AI processing failed', 500);
-  }
+  return { message: 'Video queued in BullMQ for background processing', videoId };
 }
 
 export async function deleteVideo(id: string) {

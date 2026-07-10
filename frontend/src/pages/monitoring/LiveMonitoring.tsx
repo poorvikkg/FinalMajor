@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Ca
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { SendReportModal } from '../../components/modals/SendReportModal';
 import api from '../../api';
 
 /* ─── Types ─────────────────────────────────────────── */
@@ -92,6 +93,11 @@ export const LiveMonitoring: React.FC = () => {
   const [timestamp, setTimestamp] = useState(new Date().toLocaleTimeString());
   const [gridLayout, setGridLayout] = useState<GridLayout>(4);
   const [selectedCams, setSelectedCams] = useState<Set<string>>(new Set());
+  
+  // Report Modal state
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportLogId, setReportLogId] = useState('');
+  const [reportPersonName, setReportPersonName] = useState('');
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   // Add RTSP form
@@ -184,15 +190,12 @@ export const LiveMonitoring: React.FC = () => {
     setSearchError(null);
     setSearchSubmitted(searchQuery.trim());
     try {
-      const res = await api.get(`/recognition/logs?limit=50`);
-      const all: SearchResult[] = res.data.data || [];
-      // Filter by name (case-insensitive)
-      const q = searchQuery.trim().toLowerCase();
-      const matched = all.filter(log =>
-        (log.personName || '').toLowerCase().includes(q)
-      );
+      const q = encodeURIComponent(searchQuery.trim());
+      const res = await api.get(`/recognition/logs?limit=50&personName=${q}`);
+      const matched: SearchResult[] = res.data.data || [];
+      
       setSearchResults(matched);
-      if (matched.length === 0) setSearchError('No detections found for this person.');
+      if (matched.length === 0) setSearchError('No detections found for this person in the database.');
     } catch {
       setSearchError('Search failed. Check server connection.');
     } finally {
@@ -220,10 +223,10 @@ export const LiveMonitoring: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex flex-wrap justify-between items-start gap-3">
+      <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
-          <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">Live Camera Monitoring</h1>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
+          <h1 className="text-2xl font-semibold text-slate-900">Live Camera Monitoring</h1>
+          <p className="text-sm text-slate-500 mt-1">
             {cameras.filter(c => c.status === 'online').length} online / {cameras.length} total cameras
           </p>
         </div>
@@ -233,27 +236,44 @@ export const LiveMonitoring: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
 
         {/* LEFT: Camera list sidebar */}
-        <div className="xl:col-span-1 space-y-3">
+        <div className="xl:col-span-1 space-y-4">
+          
+          {/* Detection Mode */}
+          <Card>
+            <CardHeader className="py-3 px-4 border-b border-slate-100">
+              <CardTitle className="text-sm">Detection Mode</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900">
+                <option value="global">Compare with Entire Database</option>
+                <option value="specific">Track Selected Person</option>
+              </select>
+              <p className="text-xs text-slate-500 mt-2">
+                Choose whether the AI should flag anyone in the database, or only track a specific target.
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Grid layout selector */}
           <Card>
-            <CardContent className="p-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Grid Layout</p>
-              <div className="grid grid-cols-5 gap-1">
+            <CardContent className="p-4">
+              <p className="text-sm font-medium text-slate-700 mb-3">Grid Layout</p>
+              <div className="grid grid-cols-5 gap-2">
                 {([1, 2, 4, 6, 9] as GridLayout[]).map(n => (
                   <button
                     key={n}
                     onClick={() => setGridLayout(n)}
-                    className={`py-1.5 text-[11px] font-black border transition-colors ${
+                    className={`py-1.5 text-xs font-medium rounded-md border transition-colors ${
                       gridLayout === n
                         ? 'bg-slate-900 text-white border-slate-900'
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                     }`}
                   >
                     {n === 1 ? '1×1' : n === 2 ? '1×2' : n === 4 ? '2×2' : n === 6 ? '2×3' : '3×3'}
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-slate-400 mt-2">
+              <p className="text-xs text-slate-500 mt-3">
                 Select up to {gridLayout} camera{gridLayout > 1 ? 's' : ''} from the list below.
               </p>
             </CardContent>
@@ -261,54 +281,54 @@ export const LiveMonitoring: React.FC = () => {
 
           {/* Camera list */}
           <Card>
-            <CardHeader>
-              <CardTitle>Camera Stations</CardTitle>
+            <CardHeader className="py-3 px-4 border-b border-slate-100">
+              <CardTitle className="text-sm">Camera Stations</CardTitle>
             </CardHeader>
-            <CardContent className="p-1 space-y-0.5 max-h-80 overflow-y-auto">
+            <CardContent className="p-2 max-h-80 overflow-y-auto">
               {isLoading ? (
-                <p className="p-3 text-[11px] text-slate-400 uppercase tracking-wider">Loading...</p>
+                <p className="p-3 text-sm text-slate-500">Loading...</p>
               ) : cameras.length === 0 ? (
-                <p className="p-3 text-[11px] text-slate-400 uppercase tracking-wider">No cameras registered.</p>
+                <p className="p-3 text-sm text-slate-500">No cameras registered.</p>
               ) : (
-                cameras.map(cam => {
-                  const sel = selectedCams.has(cam._id);
-                  return (
-                    <button
-                      key={cam._id}
-                      onClick={() => toggleCam(cam._id)}
-                      className={`w-full text-left px-3 py-2 flex items-center justify-between text-xs border transition-colors ${
-                        sel
-                          ? 'bg-slate-900 text-white border-slate-900'
-                          : 'bg-white text-slate-700 border-transparent hover:bg-slate-50 hover:border-slate-200'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="font-bold truncate">{cam.name}</p>
-                        <p className={`text-[10px] truncate ${sel ? 'text-slate-300' : 'text-slate-400'}`}>
-                          {cam.location}
-                        </p>
-                      </div>
-                      <span className={`text-[9px] font-black uppercase shrink-0 ml-2 ${
-                        cam.status === 'online'
-                          ? sel ? 'text-emerald-300' : 'text-emerald-600'
-                          : sel ? 'text-red-300' : 'text-red-500'
-                      }`}>
-                        {cam.status === 'online' ? 'ON' : 'OFF'}
-                      </span>
-                    </button>
-                  );
-                })
+                <div className="space-y-1">
+                  {cameras.map(cam => {
+                    const sel = selectedCams.has(cam._id);
+                    return (
+                      <button
+                        key={cam._id}
+                        onClick={() => toggleCam(cam._id)}
+                        className={`w-full text-left px-3 py-2 rounded-md flex items-center justify-between text-sm transition-colors ${
+                          sel
+                            ? 'bg-slate-100 text-slate-900 font-medium'
+                            : 'bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate">{cam.name}</p>
+                          <p className="text-xs text-slate-400 truncate">
+                            {cam.location}
+                          </p>
+                        </div>
+                        <span className={`text-xs font-semibold shrink-0 ml-2 ${
+                          cam.status === 'online' ? 'text-emerald-600' : 'text-red-500'
+                        }`}>
+                          {cam.status === 'online' ? 'Online' : 'Offline'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>
 
           {/* Person Search */}
           <Card>
-            <CardHeader>
-              <CardTitle>Search Person</CardTitle>
+            <CardHeader className="py-3 px-4 border-b border-slate-100">
+              <CardTitle className="text-sm">Search Person</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <form onSubmit={handleSearch} className="space-y-2">
+            <CardContent className="p-4 space-y-4">
+              <form onSubmit={handleSearch} className="space-y-3">
                 <Input
                   label="Person Name"
                   value={searchQuery}
@@ -316,9 +336,9 @@ export const LiveMonitoring: React.FC = () => {
                   placeholder="e.g. John Doe"
                 />
                 <div className="flex gap-2">
-                  <Button type="submit" isLoading={isSearching} className="flex-1">Search</Button>
+                  <Button type="submit" isLoading={isSearching} className="flex-1 text-sm py-1.5 h-auto">Search</Button>
                   {searchSubmitted && (
-                    <Button type="button" variant="outline" onClick={clearSearch}>Clear</Button>
+                    <Button type="button" variant="outline" onClick={clearSearch} className="text-sm py-1.5 h-auto">Clear</Button>
                   )}
                 </div>
               </form>
@@ -353,13 +373,28 @@ export const LiveMonitoring: React.FC = () => {
                             {Math.round(log.confidence * 100)}%
                           </span>
                         </div>
-                        {log.snapshot && (
-                          <img
-                            src={`/uploads/${log.snapshot}`}
-                            alt="snapshot"
-                            className="h-10 w-10 object-cover border border-slate-200 mt-1"
-                          />
-                        )}
+                        <div className="flex gap-2 items-end mt-1">
+                          {log.snapshot && (
+                            <img
+                              src={`/uploads/${log.snapshot}`}
+                              alt="snapshot"
+                              className="h-10 w-10 object-cover border border-slate-200"
+                            />
+                          )}
+                          {!log.isUnknown && (
+                            <Button 
+                              variant="outline" 
+                              className="text-[10px] py-1 h-auto px-2 border-slate-300"
+                              onClick={() => {
+                                setReportLogId(log._id);
+                                setReportPersonName(log.personName || 'Unknown');
+                                setIsReportModalOpen(true);
+                              }}
+                            >
+                              Send Report
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -474,6 +509,16 @@ export const LiveMonitoring: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Send Report Modal */}
+      {isReportModalOpen && (
+        <SendReportModal 
+          isOpen={isReportModalOpen} 
+          onClose={() => setIsReportModalOpen(false)} 
+          logId={reportLogId}
+          personName={reportPersonName}
+        />
+      )}
     </div>
   );
 };

@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+ai-service/venv/
+ai-service/models/
+ai-service/faiss/
+*.zip
+*.onnx
+backend/uploads/
+__pycache__/
+
+buffalo_l/
+
+ai-service/videos/
+ai-service/faces/

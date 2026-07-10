@@ -35,12 +35,7 @@ const STATUS_VARIANT: Record<ComplaintStatus, 'neutral' | 'warning' | 'success' 
   case_closed: 'neutral',
 };
 
-const PRIORITY_VARIANT: Record<string, 'neutral' | 'warning' | 'success' | 'danger'> = {
-  low: 'neutral',
-  medium: 'warning',
-  high: 'danger',
-  critical: 'danger',
-};
+// Removed PRIORITY_VARIANT as priority does not exist
 
 const getImageUrl = (url: string) => {
   const n = url.replace(/\\/g, '/');
@@ -208,7 +203,6 @@ export const ComplaintManagement: React.FC = () => {
                       <p className="text-xs font-black text-slate-900 uppercase tracking-wider">
                         {t.missingPersonName || 'Unknown Subject'}
                       </p>
-                      <Badge variant={PRIORITY_VARIANT[t.priority]}>{t.priority.toUpperCase()}</Badge>
                       <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABELS[t.status]}</Badge>
                     </div>
                     <p className="text-[11px] text-slate-500">
@@ -255,7 +249,6 @@ export const ComplaintManagement: React.FC = () => {
                 <div className="space-y-4 text-xs">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant={STATUS_VARIANT[selected.status]}>{STATUS_LABELS[selected.status]}</Badge>
-                    <Badge variant={PRIORITY_VARIANT[selected.priority]}>{selected.priority.toUpperCase()}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <InfoRow label="Subject" value={selected.missingPersonName || 'Unknown'} />
@@ -312,7 +305,6 @@ export const ComplaintManagement: React.FC = () => {
                   <th className="px-5 py-3">Complaint ID</th>
                   <th className="px-5 py-3">Subject</th>
                   <th className="px-5 py-3">Reporter</th>
-                  <th className="px-5 py-3">Priority</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Filed</th>
                   <th className="px-5 py-3 text-right">Action</th>
@@ -333,9 +325,6 @@ export const ComplaintManagement: React.FC = () => {
                       <td className="px-5 py-3">
                         <p className="font-bold text-slate-900">{t.reporterName}</p>
                         <p className="text-[10px] text-slate-400">{t.reporterMobile}</p>
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge variant={PRIORITY_VARIANT[t.priority]}>{t.priority.toUpperCase()}</Badge>
                       </td>
                       <td className="px-5 py-3">
                         <Badge variant={STATUS_VARIANT[t.status]}>{STATUS_LABELS[t.status]}</Badge>
@@ -393,7 +382,6 @@ export const ComplaintManagement: React.FC = () => {
                 {/* Status badges */}
                 <div className="flex gap-2 flex-wrap">
                   <Badge variant={STATUS_VARIANT[selected.status]}>{STATUS_LABELS[selected.status]}</Badge>
-                  <Badge variant={PRIORITY_VARIANT[selected.priority]}>{selected.priority.toUpperCase()}</Badge>
                 </div>
 
                 {/* Missing Person */}

@@ -64,13 +64,13 @@ export const Dashboard: React.FC = () => {
   });
 
   const activityData = data?.stats ? [
-    { name: 'Detections', detections: data.stats.recognitions.today, unknown: data.stats.recognitions.unknownDetections }
+    { name: 'Detections', detections: data.stats.recognitions?.today ?? 0, unknown: data.stats.recognitions?.unknownDetections ?? 0 }
   ] : [];
 
   const cameraUsageData = data?.stats ? [
-    { name: 'Online', count: data.stats.cameras.online },
-    { name: 'Offline', count: data.stats.cameras.offline },
-    { name: 'Maintenance', count: data.stats.cameras.maintenance },
+    { name: 'Online', count: data.stats.cameras?.online ?? 0 },
+    { name: 'Offline', count: data.stats.cameras?.offline ?? 0 },
+    { name: 'Maintenance', count: data.stats.cameras?.maintenance ?? 0 },
   ] : [];
 
   const stats = data?.stats;
@@ -86,22 +86,22 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Cameras"
-          value={isLoading ? '—' : stats?.cameras.total ?? 0}
-          description={`${stats?.cameras.online ?? 0} online, ${stats?.cameras.offline ?? 0} offline`}
+          value={isLoading ? '—' : stats?.cameras?.total ?? 0}
+          description={`${stats?.cameras?.online ?? 0} online, ${stats?.cameras?.offline ?? 0} offline`}
         />
         <StatCard
           title="Recognitions Today"
-          value={isLoading ? '—' : stats?.recognitions.today ?? 0}
+          value={isLoading ? '—' : stats?.recognitions?.today ?? 0}
           trend={{ value: '14.5%', isPositive: true }}
         />
         <StatCard
           title="Unknown Detections"
-          value={isLoading ? '—' : stats?.recognitions.unknownDetections ?? 0}
+          value={isLoading ? '—' : stats?.recognitions?.unknownDetections ?? 0}
           trend={{ value: '4.8%', isPositive: false }}
         />
         <StatCard
           title="Videos Processed"
-          value={isLoading ? '—' : stats?.videos.processed ?? 0}
+          value={isLoading ? '—' : stats?.videos?.processed ?? 0}
           description="Completed recordings"
         />
       </div>
@@ -163,7 +163,7 @@ export const Dashboard: React.FC = () => {
                     <div>
                       <p className="text-xs font-bold text-slate-900">{alert.cameraId?.name || 'Unknown Camera'}</p>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        {alert.cameraId?.location || 'Unknown location'} — Conf: {(alert.confidence * 100).toFixed(0)}%
+                        {alert.cameraId?.location || 'Unknown location'} — Conf: {alert.confidence ? (alert.confidence * 100).toFixed(0) : '0'}%
                       </p>
                     </div>
                     <span className="text-[11px] font-mono text-slate-400">
@@ -191,12 +191,12 @@ export const Dashboard: React.FC = () => {
                   <div key={ticket._id} className="px-5 py-3 flex items-center justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-xs font-bold text-slate-900">{ticket.name}</p>
-                        <Badge variant={ticket.priority === 'high' || ticket.priority === 'critical' ? 'danger' : 'warning'}>
-                          {ticket.priority}
+                        <p className="text-xs font-bold text-slate-900">{(ticket as any).missingPersonName || 'Unknown Person'}</p>
+                        <Badge variant="warning">
+                          Report
                         </Badge>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">{ticket.type.replace('_', ' ')}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">Missing Person Case</p>
                     </div>
                     <div className="text-right">
                       <span className="text-[11px] font-mono text-slate-400 block">

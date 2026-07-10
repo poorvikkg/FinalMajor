@@ -51,7 +51,8 @@ export async function processVideo(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await videoService.processVideo(req.body.videoId);
+    const { videoId, targetUserId } = req.body;
+    const result = await videoService.processVideo(videoId, targetUserId);
     sendSuccess(res, 'Video queued for processing', result);
   } catch (err) {
     next(err);
@@ -88,7 +89,8 @@ export async function analyseVideo(
     );
 
     // Immediately queue it for processing
-    await videoService.processVideo((video._id as any).toString());
+    const targetUserId = req.body.targetUserId;
+    await videoService.processVideo((video._id as any).toString(), targetUserId);
 
     sendSuccess(res, 'Video uploaded and queued for analysis', video, 201);
   } catch (err) {

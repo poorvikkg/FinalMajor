@@ -62,15 +62,14 @@ export const Sidebar: React.FC = () => {
         ))}
       </nav>
 
-      {/* Footer / User display */}
       <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center gap-3">
         <div className="h-8 w-8 rounded bg-black flex items-center justify-center text-white text-xs font-bold">
-          {user?.name.charAt(0).toUpperCase()}
+          {(user?.name || '?').charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-slate-900 truncate leading-none mb-1">{user?.name}</p>
+          <p className="text-xs font-bold text-slate-900 truncate leading-none mb-1">{user?.name || 'Loading...'}</p>
           <span className="text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
-            {user?.role} CLEARANCE
+            {user?.role || '...'} CLEARANCE
           </span>
         </div>
       </div>

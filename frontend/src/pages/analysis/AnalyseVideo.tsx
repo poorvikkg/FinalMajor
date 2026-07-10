@@ -10,6 +10,12 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import api from '../../api';
 
+const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1 text-slate-800">
+    {children}
+  </label>
+);
+
 type VideoStatus = 'uploaded' | 'queued' | 'processing' | 'completed' | 'failed';
 
 interface VideoRecord {
@@ -43,6 +49,9 @@ export const AnalyseVideo: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [activeVideoStatus, setActiveVideoStatus] = useState<VideoStatus>('uploaded');
+  
+  const [searchMode, setSearchMode] = useState<'database' | 'specific'>('database');
+  const [targetUserId, setTargetUserId] = useState<string>('');
 
   // Fetch list of all uploaded/processed videos
   const { data: videos = [], isLoading: listLoading } = useQuery<VideoRecord[]>({
@@ -50,6 +59,18 @@ export const AnalyseVideo: React.FC = () => {
     queryFn: async () => {
       try {
         const response = await api.get('/videos?limit=50');
+        return response.data.data;
+      } catch {
+        return [];
+      }
+    }
+  });
+
+  const { data: complaints = [] } = useQuery({
+    queryKey: ['complaintsList'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('/complaints?limit=200');
         return response.data.data;
       } catch {
         return [];
@@ -126,6 +147,9 @@ export const AnalyseVideo: React.FC = () => {
 
     const formData = new FormData();
     formData.append('video', selectedFile);
+    if (searchMode === 'specific' && targetUserId) {
+      formData.append('targetUserId', targetUserId);
+    }
 
     const interval = setInterval(() => {
       setUploadProgress(p => (p >= 85 ? 85 : p + 15));
@@ -209,6 +233,52 @@ export const AnalyseVideo: React.FC = () => {
                       <div>
                         <p className="text-xs font-bold text-slate-700">Choose CCTV Video</p>
                         <p className="text-[10px] text-slate-400 mt-1 uppercase">MP4, AVI, MKV, MOV, WEBM</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mode Selector */}
+                  <div className="space-y-3 pt-2">
+                    <SectionLabel>Search Mode</SectionLabel>
+                    <div className="flex gap-4">
+                      <label className="flex items-center space-x-2 text-xs">
+                        <input
+                          type="radio"
+                          checked={searchMode === 'database'}
+                          onChange={() => setSearchMode('database')}
+                          disabled={isUploading}
+                        />
+                        <span>Search Entire Database</span>
+                      </label>
+                      <label className="flex items-center space-x-2 text-xs">
+                        <input
+                          type="radio"
+                          checked={searchMode === 'specific'}
+                          onChange={() => setSearchMode('specific')}
+                          disabled={isUploading}
+                        />
+                        <span>Verify Specific Missing Person</span>
+                      </label>
+                    </div>
+
+                    {searchMode === 'specific' && (
+                      <div className="pt-2">
+                        <SectionLabel>Select Missing Person</SectionLabel>
+                        <select
+                          value={targetUserId}
+                          onChange={(e) => setTargetUserId(e.target.value)}
+                          disabled={isUploading}
+                          className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black"
+                        >
+                          <option value="">-- Select Person --</option>
+                          {complaints
+                            .filter((c: any) => c.attachments && c.attachments.length > 0 && c.complaintId && c.missingPersonName)
+                            .map((c: any) => (
+                              <option key={c._id} value={c._id}>
+                                {c.missingPersonName}
+                              </option>
+                            ))}
+                        </select>
                       </div>
                     )}
                   </div>

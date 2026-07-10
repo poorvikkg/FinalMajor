@@ -1,0 +1,18 @@
+fastapi==0.111.0
+uvicorn==0.29.0
+pydantic==2.7.1
+pydantic-settings==2.2.1
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+onnxruntime-gpu==1.17.1  # Fallback to CPU is automatic if CUDA not present
+faiss-cpu==1.8.0 # Use faiss-gpu if deploying entirely on GPU, but CPU is fine for < 100k faces
+httpx==0.27.0
+python-multipart==0.0.9
+lapx # Used for ByteTrack (Hungarian algorithm)
+scipy==1.13.1
+scikit-image==0.23.2
+motor
+pymongo<4.7
+cachetools==5.3.3
+psutil
+pillow

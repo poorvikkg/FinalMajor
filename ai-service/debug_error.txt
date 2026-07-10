@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "C:\Users\Lenovo\OneDrive\Desktop\Major\ai-service\routes\videos.py", line 36, in process_video
+    result = process_video_file(filepath, camera_id=camera_id, skip_frames=skip_frames, target_user_id=target_user_id)
+  File "C:\Users\Lenovo\OneDrive\Desktop\Major\ai-service\pipelines\video_pipeline.py", line 45, in process_video_file
+    results = pipeline.process_frame(frame)
+  File "C:\Users\Lenovo\OneDrive\Desktop\Major\ai-service\pipelines\recognition_pipeline.py", line 74, in process_frame
+    sim = np.dot(embedding, self.target_embedding) / (np.linalg.norm(embedding) * np.linalg.norm(self.target_embedding))
+ValueError: shapes (512,) and (0,) not aligned: 512 (dim 0) != 0 (dim 0)

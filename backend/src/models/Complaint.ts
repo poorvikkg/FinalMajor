@@ -107,6 +107,5 @@ ComplaintSchema.index({ priority: 1 });
 ComplaintSchema.index({ createdAt: -1 });
 ComplaintSchema.index({ assignedTo: 1 });
 ComplaintSchema.index({ createdBy: 1 });
-ComplaintSchema.index({ complaintId: 1 });
 
 export const Complaint = mongoose.model<IComplaintDocument>('Complaint', ComplaintSchema);

@@ -74,3 +74,12 @@ export async function registerFace(
     next(err);
   }
 }
+
+export async function removeLog(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await recognitionService.deleteLog(req.params.id);
+    sendSuccess(res, 'Log deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}

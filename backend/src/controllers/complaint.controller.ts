@@ -66,26 +66,43 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
     req.body.attachments = attachmentUrls;
     const complaint = await complaintService.createComplaint(req.body, req.user?._id);
 
-    // Register faces with AI service
-    const userIdStr = complaint._id.toString();
-    for (const filePath of localFilesToRegister) {
+    // Register all face photos as one batch → one strong composite embedding
+    if (localFilesToRegister.length > 0) {
+      const userIdStr = complaint._id.toString();
       try {
-        // Read entire file into buffer first, then send — avoids EBUSY on delete
-        const fileBuffer = fs.readFileSync(filePath);
-        const originalName = filePath.split(/[\\/]/).pop() || 'face.jpg';
         const formData = new FormData();
         formData.append('user_id', userIdStr);
-        formData.append('image', fileBuffer, { filename: originalName, contentType: 'image/jpeg' });
-        await axios.post(`${env.aiServiceUrl}/register/`, formData, {
+
+        const fileBuffers: { buffer: Buffer; name: string }[] = [];
+        for (const filePath of localFilesToRegister) {
+          const buffer = fs.readFileSync(filePath);
+          const name = filePath.split(/[\\\/]/).pop() || 'face.jpg';
+          fileBuffers.push({ buffer, name });
+          formData.append('images', buffer, { filename: name, contentType: 'image/jpeg' });
+        }
+
+        const response = await axios.post(`${env.aiServiceUrl}/register/batch/`, formData, {
           headers: formData.getHeaders(),
-          timeout: 15000,
+          timeout: 30000, // larger timeout for multiple images
         });
-        console.log(`[AI] Registered face for complaint ${userIdStr}`);
+
+        const result = response.data?.data || response.data;
+        console.log(
+          `[AI] Batch registered complaint ${userIdStr}: ` +
+          `${result.images_processed ?? '?'} processed, ` +
+          `${result.images_skipped ?? '?'} skipped`
+        );
+        if (result.skip_reasons?.length) {
+          console.warn(`[AI] Skipped reasons:`, result.skip_reasons);
+        }
       } catch (err: any) {
-        console.error('Failed to register face with AI service:', err.response?.data || err.message);
+        console.error('[AI] Batch registration failed:', err.response?.data || err.message);
+        // Non-fatal — complaint is still created, face search just won't work for this case
       } finally {
-        // Safe to delete now — buffer was already sent, file is no longer streamed
-        try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
+        // Clean up temp files
+        for (const filePath of localFilesToRegister) {
+          try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch (_) {}
+        }
       }
     }
 
@@ -139,7 +156,21 @@ export async function update(req: AuthRequest, res: Response, next: NextFunction
 export async function remove(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     await complaintService.deleteComplaint(req.params.id);
-    sendSuccess(res, 'Complaint deleted');
+    sendSuccess(res, 'Complaint deleted successfully');
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function removeAttachment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      res.status(400).json({ success: false, message: 'Attachment URL is required' });
+      return;
+    }
+    const updated = await complaintService.removeAttachment(req.params.id, url);
+    sendSuccess(res, 'Attachment removed successfully', updated);
   } catch (err) {
     next(err);
   }

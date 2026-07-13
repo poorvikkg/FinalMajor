@@ -93,6 +93,8 @@ export const LiveMonitoring: React.FC = () => {
   const [timestamp, setTimestamp] = useState(new Date().toLocaleTimeString());
   const [gridLayout, setGridLayout] = useState<GridLayout>(4);
   const [selectedCams, setSelectedCams] = useState<Set<string>>(new Set());
+  const [detectionMode, setDetectionMode] = useState<'global' | 'specific'>('global');
+  const [targetPersonId, setTargetPersonId] = useState<string>('');
   
   // Report Modal state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -131,6 +133,37 @@ export const LiveMonitoring: React.FC = () => {
       }
     },
     refetchInterval: 15000,
+  });
+
+  // Fetch active missing persons (complaints) for targeted tracking
+  const { data: complaints = [] } = useQuery<any[]>({
+    queryKey: ['activeComplaints'],
+    queryFn: async () => {
+      try {
+        const r = await api.get('/complaints?limit=100&status=complaint_registered,under_investigation,searching_cctv,possible_match_found');
+        return r.data.data;
+      } catch {
+        return [];
+      }
+    }
+  });
+
+  // Apply tracking settings to active cameras
+  const applySettingsMutation = useMutation({
+    mutationFn: async () => {
+      // For every selected camera, tell the backend to restart it with these settings
+      const promises = Array.from(selectedCams).map(camId => {
+        return api.post(`/cameras/${camId}/start`, {
+          mode: detectionMode === 'specific' ? 'target' : 'multi_target',
+          target_user_id: targetPersonId || undefined
+        });
+      });
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      // Optional toast/notification here
+      queryClient.invalidateQueries({ queryKey: ['monitoringCameras'] });
+    }
   });
 
   // Auto-select all online cameras on first load
@@ -244,13 +277,47 @@ export const LiveMonitoring: React.FC = () => {
               <CardTitle className="text-sm">Detection Mode</CardTitle>
             </CardHeader>
             <CardContent className="p-4">
-              <select className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900">
+              <select 
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                value={detectionMode}
+                onChange={(e) => setDetectionMode(e.target.value as 'global' | 'specific')}
+              >
                 <option value="global">Compare with Entire Database</option>
                 <option value="specific">Track Selected Person</option>
               </select>
+              
+              {detectionMode === 'specific' && (
+                <div className="mt-3">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Select Target Person</label>
+                  <select 
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    value={targetPersonId}
+                    onChange={(e) => setTargetPersonId(e.target.value)}
+                  >
+                    <option value="">-- Choose a missing person --</option>
+                    {complaints.map(c => (
+                      <option key={c._id} value={c._id}>
+                        {c.missingPersonName} (ID: {c.complaintId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <p className="text-xs text-slate-500 mt-2">
                 Choose whether the AI should flag anyone in the database, or only track a specific target.
               </p>
+              {/* Apply Button */}
+              <div className="mt-4">
+                <Button 
+                  className="w-full text-xs" 
+                  onClick={() => applySettingsMutation.mutate()}
+                  isLoading={applySettingsMutation.isPending}
+                  disabled={detectionMode === 'specific' && !targetPersonId}
+                >
+                  Apply Settings to Active Grid
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

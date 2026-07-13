@@ -14,6 +14,8 @@ import dashboardRoutes from './dashboard.routes';
 import userRoutes from './user.routes';
 import notificationRoutes from './notification.routes';
 import reportRoutes from './report.routes';
+import webhookRoutes from './webhook.routes';
+import suspectRoutes from './suspect.routes';
 
 const router = Router();
 
@@ -27,5 +29,11 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/reports', reportRoutes);
+
+// Internal webhooks (from AI service)
+router.use('/webhooks', webhookRoutes);
+
+// Suspect management
+router.use('/suspects', suspectRoutes);
 
 export default router;

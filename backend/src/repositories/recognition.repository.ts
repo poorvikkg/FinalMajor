@@ -35,6 +35,10 @@ export async function createLog(
   return RecognitionLog.create(data);
 }
 
+export async function deleteLog(id: string): Promise<IRecognitionLogDocument | null> {
+  return RecognitionLog.findByIdAndDelete(id).lean() as unknown as IRecognitionLogDocument;
+}
+
 // Count today's recognitions for dashboard stats
 export async function countTodayRecognitions(): Promise<number> {
   const startOfDay = new Date();

@@ -74,9 +74,9 @@ export const FileCase: React.FC = () => {
   const [reporterGovtId, setReporterGovtId] = useState('');
 
   // ── Section C: Police Case ──────────────────────────────
-  const [policeStation, setPoliceStation] = useState('');
+  const [policeStation, setPoliceStation] = useState(user?.name || '');
   const [officerName, setOfficerName] = useState('');
-  const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('high');
+  const [firNumber, setFirNumber] = useState('');
 
   // ── UI State ─────────────────────────────────────────────
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -140,7 +140,7 @@ export const FileCase: React.FC = () => {
       // Section C
       if (policeStation) fd.append('policeStation', policeStation);
       if (officerName) fd.append('officerName', officerName);
-      fd.append('priority', priority);
+      if (firNumber) fd.append('firNumber', firNumber);
 
       const res = await api.post('/complaints', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -466,8 +466,8 @@ export const FileCase: React.FC = () => {
               <Input
                 label="Police Station"
                 value={policeStation}
-                onChange={(e) => setPoliceStation(e.target.value)}
-                placeholder="e.g. MG Road Police Station"
+                onChange={() => {}}
+                disabled
               />
               <Input
                 label="Receiving Officer Name"
@@ -477,19 +477,12 @@ export const FileCase: React.FC = () => {
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <SectionLabel>Search Priority *</SectionLabel>
-                <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 bg-white text-black focus:outline-none focus:border-black"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
-              </div>
+              <Input
+                label="FIR Number (if any)"
+                value={firNumber}
+                onChange={(e) => setFirNumber(e.target.value)}
+                placeholder="e.g. FIR/2026/0012"
+              />
               <div>
                 <SectionLabel>Complaint ID</SectionLabel>
                 <div className="px-3 py-2 text-xs border border-slate-200 bg-slate-50 text-slate-500 font-mono">

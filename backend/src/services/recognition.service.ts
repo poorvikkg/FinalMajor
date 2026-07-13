@@ -67,3 +67,7 @@ export async function registerFace(_data: { name: string; images: string[] }) {
 export async function recognize(_imageBase64: string) {
   return { message: 'Recognition request sent to AI service' };
 }
+
+export async function deleteLog(id: string) {
+  return recognitionRepo.deleteLog(id);
+}

@@ -43,13 +43,27 @@ export async function getCameraStats() {
   return cameraRepo.getCameraStats();
 }
 
+import axios from 'axios';
+import { env } from '../config/env';
+
 // AI Integration Point: will communicate with Python FastAPI later
-export async function startCamera(id: string) {
+export async function startCamera(id: string, mode?: string, targetUserId?: string) {
   const camera = await cameraRepo.findCameraById(id);
   if (!camera) throw new AppError('Camera not found', 404);
+  if (!camera.rtspUrl) throw new AppError('Camera does not have an RTSP URL configured', 400);
 
-  // TODO: POST to Python AI service: http://ai-service/api/cameras/start
-  // For now, just update status to online
+  try {
+    await axios.post(`${env.aiServiceUrl}/streams/start`, {
+      camera_id: camera._id.toString(),
+      rtsp_url: camera.rtspUrl,
+      mode: mode || 'multi_target',
+      target_user_id: targetUserId || undefined
+    });
+  } catch (error: any) {
+    console.error('Failed to start AI stream:', error.response?.data || error.message);
+    throw new AppError('Failed to start stream in AI service', 500);
+  }
+
   return cameraRepo.updateCamera(id, { status: 'online', lastActive: new Date() });
 }
 
@@ -58,6 +72,14 @@ export async function stopCamera(id: string) {
   const camera = await cameraRepo.findCameraById(id);
   if (!camera) throw new AppError('Camera not found', 404);
 
-  // TODO: POST to Python AI service: http://ai-service/api/cameras/stop
+  try {
+    await axios.post(`${env.aiServiceUrl}/streams/stop`, {
+      camera_id: camera._id.toString()
+    });
+  } catch (error: any) {
+    console.error('Failed to stop AI stream:', error.response?.data || error.message);
+    // Ignore error if it's already stopped
+  }
+
   return cameraRepo.updateCamera(id, { status: 'offline' });
 }

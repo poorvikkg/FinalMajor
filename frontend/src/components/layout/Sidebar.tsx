@@ -9,18 +9,21 @@ import {
   FileQuestion,
   Users,
   ScanSearch,
+  FilePlus,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuthStore();
 
   const menuItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'station'] },
-    { to: '/monitoring', label: 'Live Monitoring', icon: Tv, roles: ['admin', 'station'] },
-    { to: '/analyse', label: 'Video Analysis', icon: ScanSearch, roles: ['admin', 'station'] },
-    { to: '/cameras', label: 'Camera Management', icon: Camera, roles: ['admin', 'station'] },
-    { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin', 'station'] },
-    { to: '/complaints', label: 'Complaints', icon: FileQuestion, roles: ['admin', 'station'] },
+    { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin'] },
+    { to: '/monitoring', label: 'Live Monitoring', icon: Tv, roles: ['admin'] },
+    { to: '/analyse', label: 'Video Analysis', icon: ScanSearch, roles: ['admin'] },
+    { to: '/cameras', label: 'Camera Management', icon: Camera, roles: ['admin'] },
+    { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },
+    { to: '/file-case', label: 'Register Complaint', icon: FilePlus, roles: ['admin', 'station'] },
+    { to: '/complaints', label: 'View All Complaints', icon: FileQuestion, roles: ['admin', 'station'] },
+    { to: '/suspects', label: 'Suspects', icon: Users, roles: ['admin'] },
     { to: '/users', label: 'Station Management', icon: Users, roles: ['admin'] },
   ];
 

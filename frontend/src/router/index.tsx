@@ -16,6 +16,7 @@ import { UserManagement } from '../pages/users/UserManagement';
 import { Settings } from '../pages/settings/Settings';
 import { FileCase } from '../pages/cases/FileCase';
 import { AnalyseVideo } from '../pages/analysis/AnalyseVideo';
+import { Suspects } from '../pages/suspects/Suspects';
 
 interface ProtectedProps {
   children: React.ReactElement;
@@ -51,21 +52,21 @@ export const AppRouter: React.FC = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Root: admin/operator → Dashboard, viewer → complaints */}
+        {/* Root: admin → Dashboard, station/viewer → complaints */}
         <Route
           path="/"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <Dashboard />
             </ProtectedRoute>
           }
         />
 
-        {/* Admin / Operator only */}
+        {/* Admin only */}
         <Route
           path="/monitoring"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <LiveMonitoring />
             </ProtectedRoute>
           }
@@ -73,7 +74,7 @@ export const AppRouter: React.FC = () => {
         <Route
           path="/cameras"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <CameraManagement />
             </ProtectedRoute>
           }
@@ -81,7 +82,7 @@ export const AppRouter: React.FC = () => {
         <Route
           path="/logs"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <RecognitionLogs />
             </ProtectedRoute>
           }
@@ -89,15 +90,23 @@ export const AppRouter: React.FC = () => {
         <Route
           path="/unknown-faces"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <UnknownFaces />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suspects"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Suspects />
             </ProtectedRoute>
           }
         />
         <Route
           path="/analyse"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator']}>
+            <ProtectedRoute allowedRoles={['admin']}>
               <AnalyseVideo />
             </ProtectedRoute>
           }
@@ -119,11 +128,11 @@ export const AppRouter: React.FC = () => {
           }
         />
 
-        {/* Viewer + Admin + Operator */}
+        {/* Viewer + Admin + Station */}
         <Route
           path="/complaints"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator', 'viewer']}>
+            <ProtectedRoute allowedRoles={['admin', 'station', 'viewer']}>
               <ComplaintManagement />
             </ProtectedRoute>
           }
@@ -131,7 +140,7 @@ export const AppRouter: React.FC = () => {
         <Route
           path="/file-case"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'operator', 'viewer']}>
+            <ProtectedRoute allowedRoles={['admin', 'station', 'viewer']}>
               <FileCase />
             </ProtectedRoute>
           }

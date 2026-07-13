@@ -36,8 +36,10 @@ router.post(
 router.patch('/:id/status', requireRole('admin', 'station'), validate(updateComplaintStatusSchema), complaintController.updateStatus);
 
 
+router.delete('/:id/attachments', requireRole('admin', 'station'), complaintController.removeAttachment);
+
 // Admin legacy update (direct field overrides)
-router.put('/:id', requireRole('admin'), validate(updateComplaintSchema), complaintController.update);
-router.delete('/:id', requireRole('admin'), complaintController.remove);
+router.put('/:id', requireRole('admin', 'station'), validate(updateComplaintSchema), complaintController.update);
+router.delete('/:id', requireRole('admin', 'station'), complaintController.remove);
 
 export default router;

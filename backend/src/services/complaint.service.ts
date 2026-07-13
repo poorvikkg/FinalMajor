@@ -60,7 +60,13 @@ export async function getAllComplaints(
   createdBy?: string
 ) {
   const filter: Record<string, unknown> = {};
-  if (status) filter.status = status;
+  if (status) {
+    if (status.includes(',')) {
+      filter.status = { $in: status.split(',') };
+    } else {
+      filter.status = status;
+    }
+  }
   if (priority) filter.priority = priority;
   if (createdBy) filter.createdBy = createdBy;
   return complaintRepo.findAllComplaints({ page, limit, skip: (page - 1) * limit }, filter);
@@ -201,6 +207,18 @@ export async function deleteComplaint(id: string) {
   const complaint = await complaintRepo.deleteComplaint(id);
   if (!complaint) throw new AppError('Complaint not found', 404);
   return complaint;
+}
+
+export async function removeAttachment(id: string, url: string) {
+  const complaint = await complaintRepo.findComplaintById(id);
+  if (!complaint) throw new AppError('Complaint not found', 404);
+
+  const updatedAttachments = complaint.attachments?.filter(att => att !== url) || [];
+  
+  const updated = await complaintRepo.updateComplaint(id, { attachments: updatedAttachments });
+  if (!updated) throw new AppError('Complaint not found', 404);
+  
+  return updated;
 }
 
 // ── Stats ────────────────────────────────────────────────────────────────────

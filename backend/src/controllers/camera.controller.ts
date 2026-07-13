@@ -62,7 +62,8 @@ export async function startCamera(
   next: NextFunction
 ): Promise<void> {
   try {
-    const camera = await cameraService.startCamera(req.params.id);
+    const { mode, target_user_id } = req.body;
+    const camera = await cameraService.startCamera(req.params.id, mode, target_user_id);
     sendSuccess(res, 'Camera started', camera);
   } catch (err) {
     next(err);

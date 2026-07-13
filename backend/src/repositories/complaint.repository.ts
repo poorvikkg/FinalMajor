@@ -48,7 +48,8 @@ export async function updateComplaint(
   id: string,
   data: Partial<IComplaintDocument>
 ): Promise<IComplaintDocument | null> {
-  return Complaint.findByIdAndUpdate(id, data, { new: true, runValidators: true }).lean() as any;
+  // Wrap in $set to avoid accidentally wiping fields (e.g. searchVector) not present in the update payload
+  return Complaint.findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true }).lean() as any;
 }
 
 export async function deleteComplaint(id: string): Promise<IComplaintDocument | null> {

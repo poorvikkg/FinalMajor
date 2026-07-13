@@ -8,6 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { CaseHistoryTimeline } from '../../components/shared/CaseHistoryTimeline';
 import type { Complaint, ComplaintStatus } from '../../types';
+import { useAuthStore } from '../../store/auth';
 import api from '../../api';
 
 // ── Label maps ───────────────────────────────────────────────────────────────
@@ -67,8 +68,9 @@ const InfoRow: React.FC<{ label: string; value?: string | null }> = ({ label, va
 export const ComplaintManagement: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const isViewer = false;
-  const isOperator = true;
+  const { user } = useAuthStore();
+  const isViewer = user?.role === 'station' || user?.role === 'viewer';
+  const isOperator = user?.role === 'admin';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -95,7 +97,7 @@ export const ComplaintManagement: React.FC = () => {
 
   const statusUpdateMutation = useMutation({
     mutationFn: async ({ id, formData }: { id: string; formData: FormData }) => {
-      await api.put(`/complaints/${id}/status`, formData, {
+      await api.patch(`/complaints/${id}/status`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
     },
@@ -109,12 +111,35 @@ export const ComplaintManagement: React.FC = () => {
       setConfidenceScore('');
       setDetectionTimestamp('');
       // Switch to history tab to show the newly added entry
-      setActiveTab('history');
+      setEvidenceFiles([]);
     },
     onError: (err: any) => {
-      const d = err.response?.data;
-      setUpdateError(d?.message || 'Failed to update status.');
+      setUpdateError(err.response?.data?.message || 'Update failed');
     },
+  });
+
+  const removeAttachmentMutation = useMutation({
+    mutationFn: async ({ id, url }: { id: string; url: string }) => {
+      await api.delete(`/complaints/${id}/attachments`, { data: { url } });
+    },
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['complaintsList'] });
+      if (selected) {
+        // Optimistically update the selected complaint so the UI reflects the change immediately
+        setSelected({ ...selected, attachments: selected.attachments?.filter(att => att !== variables.url) });
+      }
+    },
+  });
+
+  const deleteComplaintMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/complaints/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['complaintsList'] });
+      setIsDetailOpen(false);
+      setSelected(null);
+    }
   });
 
   const openDetail = (t: Complaint) => {
@@ -167,8 +192,8 @@ export const ComplaintManagement: React.FC = () => {
       <div className="space-y-5 max-w-3xl">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">My Reports</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Track your submitted missing person reports. Auto-refreshes every 30 seconds.</p>
+            <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">All Complaints</h1>
+            <p className="text-xs text-slate-500 mt-0.5">Track all submitted missing person reports. Auto-refreshes every 30 seconds.</p>
           </div>
           <Button onClick={() => navigate('/file-case')}>File New Report</Button>
         </div>
@@ -267,7 +292,20 @@ export const ComplaintManagement: React.FC = () => {
                 <CaseHistoryTimeline complaintId={selected._id} />
               )}
 
-              <div className="flex justify-end pt-2 border-t border-slate-100">
+              <div className="flex justify-between pt-2 border-t border-slate-100 items-center">
+                {(user?.role === 'admin' || user?.role === 'station') ? (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to permanently delete this complaint? This cannot be undone.')) {
+                        deleteComplaintMutation.mutate(selected._id);
+                      }
+                    }}
+                    className="text-[11px] font-bold text-red-600 hover:text-red-700 uppercase tracking-wider px-3"
+                    title="Delete Complaint"
+                  >
+                    {deleteComplaintMutation.isPending ? 'Deleting...' : 'Delete Case'}
+                  </button>
+                ) : <div />}
                 <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Close</Button>
               </div>
             </div>
@@ -359,20 +397,35 @@ export const ComplaintManagement: React.FC = () => {
         >
           <div className="space-y-4">
             {/* Tabs */}
-            <div className="flex border-b border-slate-200">
-              {(['details', 'history'] as const).map((tab) => (
+            <div className="flex justify-between items-center border-b border-slate-200">
+              <div className="flex">
+                {(['details', 'history'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-2 text-[11px] font-black uppercase tracking-wider border-b-2 transition-colors ${
+                      activeTab === tab
+                        ? 'border-black text-black'
+                        : 'border-transparent text-slate-400 hover:text-slate-700'
+                    }`}
+                  >
+                    {tab === 'details' ? 'Case Details' : 'Investigation Timeline'}
+                  </button>
+                ))}
+              </div>
+              {(user?.role === 'admin' || user?.role === 'station') && (
                 <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 text-[11px] font-black uppercase tracking-wider border-b-2 transition-colors ${
-                    activeTab === tab
-                      ? 'border-black text-black'
-                      : 'border-transparent text-slate-400 hover:text-slate-700'
-                  }`}
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to permanently delete this complaint? This cannot be undone.')) {
+                      deleteComplaintMutation.mutate(selected._id);
+                    }
+                  }}
+                  className="text-[11px] font-bold text-red-600 hover:text-red-700 uppercase tracking-wider px-3"
+                  title="Delete Complaint"
                 >
-                  {tab === 'details' ? 'Case Details' : 'Investigation Timeline'}
+                  {deleteComplaintMutation.isPending ? 'Deleting...' : 'Delete Case'}
                 </button>
-              ))}
+              )}
             </div>
 
             {activeTab === 'details' ? (
@@ -431,10 +484,20 @@ export const ComplaintManagement: React.FC = () => {
                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2">Photos</p>
                     <div className="flex flex-wrap gap-2">
                       {selected.attachments.map((url, i) => (
-                        <a key={i} href={getImageUrl(url)} target="_blank" rel="noreferrer"
-                          className="border border-slate-200 p-0.5 hover:border-slate-500 transition-colors">
-                          <img src={getImageUrl(url)} alt={`Photo ${i + 1}`} className="h-20 w-20 object-cover" />
-                        </a>
+                        <div key={i} className="relative group border border-slate-200 p-0.5 hover:border-slate-500 transition-colors">
+                          <a href={getImageUrl(url)} target="_blank" rel="noreferrer" className="block">
+                            <img src={getImageUrl(url)} alt={`Photo ${i + 1}`} className="h-20 w-20 object-cover" />
+                          </a>
+                          {isOperator && (
+                            <button
+                              onClick={() => removeAttachmentMutation.mutate({ id: selected._id, url })}
+                              className="absolute top-0 right-0 bg-red-600 text-white p-1 rounded-bl text-[9px] opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Delete Photo"
+                            >
+                              X
+                            </button>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>

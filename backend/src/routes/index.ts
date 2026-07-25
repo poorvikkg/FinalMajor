@@ -15,7 +15,8 @@ import userRoutes from './user.routes';
 import notificationRoutes from './notification.routes';
 import reportRoutes from './report.routes';
 import webhookRoutes from './webhook.routes';
-import suspectRoutes from './suspect.routes';
+import unknownPersonRoutes from './unknownPerson.routes';
+import sightingRoutes from './sighting.routes';
 
 const router = Router();
 
@@ -33,7 +34,10 @@ router.use('/reports', reportRoutes);
 // Internal webhooks (from AI service)
 router.use('/webhooks', webhookRoutes);
 
-// Suspect management
-router.use('/suspects', suspectRoutes);
+// Recurring unknown person management
+router.use('/unknown-persons', unknownPersonRoutes);
+
+// Sighting Map & Location Tracking
+router.use('/sightings', sightingRoutes);
 
 export default router;

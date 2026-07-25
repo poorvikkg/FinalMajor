@@ -61,4 +61,18 @@ export function emitCameraStatus(cameraId: string, status: string): void {
   }
 }
 
+// Broadcast unknown person status change (UNKNOWN → RECURRING → REVIEW_REQUIRED)
+export function emitUnknownStatusChange(data: object): void {
+  if (io) {
+    io.emit('unknown-status-changed', data);
+  }
+}
+
+// Broadcast new Sighting marker event to detection maps
+export function emitNewSighting(sighting: object): void {
+  if (io) {
+    io.emit('sighting:new', sighting);
+  }
+}
+
 export { io };

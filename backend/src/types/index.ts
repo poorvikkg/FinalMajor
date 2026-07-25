@@ -32,10 +32,16 @@ export interface IUser {
 export type CameraStatus = 'online' | 'offline' | 'maintenance';
 export type CameraType = 'ip' | 'rtsp' | 'usb' | 'cloud';
 
+export interface ICameraLocation {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
 export interface ICamera {
   _id: Types.ObjectId;
   name: string;
-  location: string;
+  location: ICameraLocation | string;
   rtspUrl?: string;
   ipAddress?: string;
   type: CameraType;
@@ -52,6 +58,7 @@ export interface ICamera {
 // ──────────────────────────────────────────
 
 export type VideoStatus = 'uploaded' | 'queued' | 'processing' | 'completed' | 'failed';
+export type VideoSourceType = 'REGISTERED_CCTV' | 'OTHER_LOCATION';
 
 export interface IVideo {
   _id: Types.ObjectId;
@@ -62,10 +69,49 @@ export interface IVideo {
   duration?: number;
   path: string;
   uploadedBy: Types.ObjectId;
+  sourceType?: VideoSourceType;
+  location?: {
+    name?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  recordedAt?: Date;
   cameraId?: Types.ObjectId;
   status: VideoStatus;
   processingResult?: object;
   errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ──────────────────────────────────────────
+// Sighting Types
+// ──────────────────────────────────────────
+
+export type SightingIdentityType = 'KNOWN' | 'UNKNOWN';
+export type SightingSourceType = 'LIVE_CCTV' | 'UPLOADED_VIDEO';
+
+export interface ISightingLocationType {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface ISightingType {
+  _id: Types.ObjectId;
+  identityType: SightingIdentityType;
+  personId?: Types.ObjectId;
+  unknownPersonId?: Types.ObjectId;
+  cameraId?: Types.ObjectId;
+  videoId?: Types.ObjectId;
+  sourceType: SightingSourceType;
+  location: ISightingLocationType;
+  locationAvailable: boolean;
+  detectedAt: Date;
+  videoTimestampSeconds?: number;
+  similarity: number;
+  snapshotObjectKey?: string;
+  trackId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -95,6 +141,44 @@ export interface IUnknownFace {
   isAlerted: boolean;
   timestamp: Date;
   createdAt: Date;
+}
+
+// ──────────────────────────────────────────
+// Recurring Unknown Person Types
+// ──────────────────────────────────────────
+
+export type UnknownPersonStatus = 'UNKNOWN' | 'RECURRING' | 'REVIEW_REQUIRED';
+
+export interface IUnknownPersonAppearanceType {
+  videoId?: Types.ObjectId;
+  cameraId?: Types.ObjectId;
+  timestamp: Date;
+  detectedAt: Date;
+  snapshotObjectKey: string;
+  trackId?: number;
+  similarity: number;
+  qualityScore: number;
+}
+
+export interface IUnknownPersonType {
+  _id: Types.ObjectId;
+  unknownId: string;
+  representativeSnapshot: string;
+  status: UnknownPersonStatus;
+  appearanceCount: number;
+  distinctVideoCount: number;
+  distinctCameraCount: number;
+  firstSeen: Date;
+  lastSeen: Date;
+  appearances: IUnknownPersonAppearanceType[];
+  isReviewed: boolean;
+  reviewedBy?: Types.ObjectId;
+  reviewedAt?: Date;
+  reviewAction?: 'reviewed' | 'associated' | 'dismissed';
+  associatedCaseId?: Types.ObjectId;
+  reviewNotes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ──────────────────────────────────────────

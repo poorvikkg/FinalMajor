@@ -38,3 +38,10 @@ async def get_faiss_status():
         "dimension": faiss_manager.dim,
         "total_embeddings_indexed": ntotal
     }
+
+@router.get("/unknown-persons/stats")
+async def get_unknown_persons_stats():
+    """Return metrics for the unknown person clustering system."""
+    from services.unknown_person_manager import unknown_person_manager
+    return unknown_person_manager.get_stats()
+

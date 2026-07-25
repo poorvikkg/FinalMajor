@@ -5,10 +5,16 @@
 
 import { z } from 'zod';
 
+const cameraLocationObjectSchema = z.object({
+  name: z.string().min(1),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+});
+
 export const createCameraSchema = z.object({
   name: z.string().min(2).max(100),
-  location: z.string().min(2).max(200),
-  rtspUrl: z.string().url().optional(),
+  location: z.union([z.string().min(2).max(200), cameraLocationObjectSchema]),
+  rtspUrl: z.string().optional(),
   ipAddress: z.string().optional(),
   type: z.enum(['ip', 'rtsp', 'usb', 'cloud']),
   status: z.enum(['online', 'offline', 'maintenance']).default('offline'),

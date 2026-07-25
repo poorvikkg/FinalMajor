@@ -63,10 +63,10 @@ class FaceDetector:
             elif out.shape[-1] == 10:
                 kpss_list.append(out)
                 
-        # Sort them by spatial size (descending -> stride 8, 16, 32)
-        scores_list.sort(key=lambda x: x.shape[1], reverse=True)
-        bboxes_list.sort(key=lambda x: x.shape[1], reverse=True)
-        kpss_list.sort(key=lambda x: x.shape[1], reverse=True)
+        # Sort them by spatial size (descending -> stride 8 (12800), 16 (3200), 32 (800))
+        scores_list.sort(key=lambda x: x.shape[0], reverse=True)
+        bboxes_list.sort(key=lambda x: x.shape[0], reverse=True)
+        kpss_list.sort(key=lambda x: x.shape[0], reverse=True)
         
         featmap_sizes = [(int(max_size/8), int(max_size/8)), 
                          (int(max_size/16), int(max_size/16)), 

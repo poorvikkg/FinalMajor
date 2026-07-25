@@ -74,7 +74,7 @@ export const FileCase: React.FC = () => {
   const [reporterGovtId, setReporterGovtId] = useState('');
 
   // ── Section C: Police Case ──────────────────────────────
-  const [policeStation, setPoliceStation] = useState(user?.name || '');
+  const [policeStation] = useState(user?.name || '');
   const [officerName, setOfficerName] = useState('');
   const [firNumber, setFirNumber] = useState('');
 

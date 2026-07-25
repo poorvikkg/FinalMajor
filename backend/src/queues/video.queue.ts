@@ -71,6 +71,44 @@ const worker = new Worker('video-processing', async (job: Job) => {
         videoId: videoId,
         snapshot: log.snapshot_path || undefined,
       });
+
+      // Calculate exact detectedAt = recordedAt + videoTimestampSeconds
+      const videoTimestampSeconds = typeof log.timestamp === 'number' ? log.timestamp : 0;
+      const recordedAt = video.recordedAt ? new Date(video.recordedAt) : (video.createdAt ? new Date(video.createdAt) : new Date());
+      const exactDetectedAt = new Date(recordedAt.getTime() + videoTimestampSeconds * 1000);
+
+      let locName = 'Uploaded Video';
+      let lat = 0;
+      let lng = 0;
+
+      if (video.location) {
+        locName = video.location.name || 'Uploaded Video Location';
+        lat = video.location.latitude || 0;
+        lng = video.location.longitude || 0;
+      }
+
+      const isUnknownFace = log.is_unknown || log.user_id === 'unknown';
+
+      try {
+        const createSighting = (await import('../services/sighting.service')).createSighting;
+        await createSighting({
+          identityType: isUnknownFace ? 'UNKNOWN' : 'KNOWN',
+          personId: isUnknownFace ? undefined : log.user_id,
+          videoId: videoId,
+          cameraId: video.cameraId ? video.cameraId.toString() : undefined,
+          sourceType: video.sourceType === 'REGISTERED_CCTV' ? 'LIVE_CCTV' : 'UPLOADED_VIDEO',
+          locationName: locName,
+          latitude: lat,
+          longitude: lng,
+          detectedAt: exactDetectedAt,
+          videoTimestampSeconds: videoTimestampSeconds,
+          similarity: log.confidence || 0.5,
+          snapshotObjectKey: log.snapshot_path || undefined,
+          trackId: log.track_id ? log.track_id.toString() : undefined,
+        });
+      } catch (sightingErr) {
+        console.error('[BullMQ] Failed to create sighting for video detection:', sightingErr);
+      }
     }
 
     await videoRepo.updateVideoStatus(videoId, 'completed');

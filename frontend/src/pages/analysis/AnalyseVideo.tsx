@@ -35,13 +35,15 @@ interface RecognitionLog {
   timestamp: string;
 }
 
+import { LocationPicker } from '../../components/map/LocationPicker';
+
 export const AnalyseVideo: React.FC = () => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Active view: 'list' (shows history & upload option) | 'processing' | 'results'
   const [viewState, setViewState] = useState<'list' | 'processing' | 'results'>('list');
-  
+
   // Selection / Upload states
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -49,9 +51,19 @@ export const AnalyseVideo: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [activeVideoStatus, setActiveVideoStatus] = useState<VideoStatus>('uploaded');
-  
+
   const [searchMode, setSearchMode] = useState<'database' | 'specific'>('database');
   const [targetUserId, setTargetUserId] = useState<string>('');
+
+  // Location & Recording Time states
+  const [sourceType, setSourceType] = useState<'REGISTERED_CCTV' | 'OTHER_LOCATION'>('OTHER_LOCATION');
+  const [selectedCameraId, setSelectedCameraId] = useState<string>('');
+  const [recordedAt, setRecordedAt] = useState<string>(new Date().toISOString().slice(0, 16));
+  const [locationObj, setLocationObj] = useState<{ name: string; latitude: number; longitude: number }>({
+    name: '',
+    latitude: 12.9141,
+    longitude: 74.856,
+  });
 
   // Fetch list of all uploaded/processed videos
   const { data: videos = [], isLoading: listLoading } = useQuery<VideoRecord[]>({
@@ -60,6 +72,19 @@ export const AnalyseVideo: React.FC = () => {
       try {
         const response = await api.get('/videos?limit=50');
         return response.data.data;
+      } catch {
+        return [];
+      }
+    }
+  });
+
+  // Fetch registered CCTV cameras
+  const { data: cameras = [] } = useQuery({
+    queryKey: ['camerasList'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/cameras?limit=100');
+        return res.data.data;
       } catch {
         return [];
       }
@@ -147,6 +172,17 @@ export const AnalyseVideo: React.FC = () => {
 
     const formData = new FormData();
     formData.append('video', selectedFile);
+    formData.append('sourceType', sourceType);
+    formData.append('recordedAt', recordedAt ? new Date(recordedAt).toISOString() : new Date().toISOString());
+
+    if (sourceType === 'REGISTERED_CCTV' && selectedCameraId) {
+      formData.append('cameraId', selectedCameraId);
+    } else if (sourceType === 'OTHER_LOCATION') {
+      formData.append('locationName', locationObj.name);
+      formData.append('latitude', locationObj.latitude.toString());
+      formData.append('longitude', locationObj.longitude.toString());
+    }
+
     if (searchMode === 'specific' && targetUserId) {
       formData.append('targetUserId', targetUserId);
     }
@@ -237,8 +273,79 @@ export const AnalyseVideo: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Recording Source & Location */}
+                  <div className="space-y-3 pt-2 border-t border-slate-100">
+                    <SectionLabel>Recording Source Location</SectionLabel>
+                    <div className="flex gap-4">
+                      <label className="flex items-center space-x-2 text-xs font-medium">
+                        <input
+                          type="radio"
+                          checked={sourceType === 'REGISTERED_CCTV'}
+                          onChange={() => setSourceType('REGISTERED_CCTV')}
+                          disabled={isUploading}
+                        />
+                        <span>Registered CCTV Feed</span>
+                      </label>
+                      <label className="flex items-center space-x-2 text-xs font-medium">
+                        <input
+                          type="radio"
+                          checked={sourceType === 'OTHER_LOCATION'}
+                          onChange={() => setSourceType('OTHER_LOCATION')}
+                          disabled={isUploading}
+                        />
+                        <span>Other Location / Video</span>
+                      </label>
+                    </div>
+
+                    {sourceType === 'REGISTERED_CCTV' && (
+                      <div className="pt-1">
+                        <SectionLabel>Select CCTV Station</SectionLabel>
+                        <select
+                          value={selectedCameraId}
+                          onChange={(e) => setSelectedCameraId(e.target.value)}
+                          disabled={isUploading}
+                          className="w-full px-3 py-2 text-xs border border-slate-300 bg-white font-semibold focus:outline-none"
+                        >
+                          <option value="">-- Select Camera --</option>
+                          {cameras.map((c: any) => {
+                            const locName = typeof c.location === 'object' ? c.location.name : c.location;
+                            return (
+                              <option key={c._id} value={c._id}>
+                                {c.name} ({locName || 'No Location'})
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    )}
+
+                    {sourceType === 'OTHER_LOCATION' && (
+                      <div className="pt-1">
+                        <LocationPicker
+                          locationName={locationObj.name}
+                          latitude={locationObj.latitude}
+                          longitude={locationObj.longitude}
+                          onChange={(data) => setLocationObj(data)}
+                          height="200px"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recording Start Time */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <SectionLabel>Recording Start Time (Date & Time)</SectionLabel>
+                    <input
+                      type="datetime-local"
+                      value={recordedAt}
+                      onChange={(e) => setRecordedAt(e.target.value)}
+                      disabled={isUploading}
+                      className="w-full p-2 text-xs font-mono border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    />
+                  </div>
+
                   {/* Mode Selector */}
-                  <div className="space-y-3 pt-2">
+                  <div className="space-y-3 pt-2 border-t border-slate-100">
                     <SectionLabel>Search Mode</SectionLabel>
                     <div className="flex gap-4">
                       <label className="flex items-center space-x-2 text-xs">

@@ -9,6 +9,7 @@ from services.logger import sys_logger
 from services.model_manager import model_manager
 from cache.embedding_cache import embedding_cache
 from services.faiss_manager import faiss_manager
+from services.unknown_person_manager import unknown_person_manager
 
 # MongoDB Global Client
 db_client = None
@@ -40,7 +41,7 @@ async def lifespan(app: FastAPI):
             
     sys_logger.info(f"Loaded {count} face embeddings into RAM cache.")
     
-    # 3. Build FAISS Index from RAM Cache
+    # 3. Build FAISS Index from RAM Cache (Known persons)
     faiss_manager.build_from_cache()
     
     # 4. Load Models and Warmup
@@ -50,7 +51,18 @@ async def lifespan(app: FastAPI):
         model_manager.warm_up()
     except Exception as e:
         sys_logger.critical(f"Failed to load models: {e}")
-        # Depending on strictness, we could raise e to crash startup
+
+    # 5. Initialize Unknown Person FAISS Index from MongoDB
+    try:
+        sys_logger.info("Initializing Unknown Person FAISS index...")
+        await unknown_person_manager.initialize(db)
+        stats = unknown_person_manager.get_stats()
+        sys_logger.info(
+            f"Unknown Person index ready: {stats['unknown_identity_count']} identities, "
+            f"{stats['recurring_count']} recurring, {stats['review_required_count']} review-required"
+        )
+    except Exception as e:
+        sys_logger.error(f"Unknown Person index init failed (non-fatal): {e}")
         
     sys_logger.info("AI Service Initialization Complete.")
     
@@ -89,3 +101,4 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=settings.DEBUG)
+

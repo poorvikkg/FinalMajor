@@ -18,9 +18,13 @@ const CameraSchema = new Schema<ICameraDocument>(
       maxlength: 100,
     },
     location: {
-      type: String,
-      required: [true, 'Camera location is required'],
-      trim: true,
+      name: { type: String, required: true, trim: true },
+      latitude: { type: Number, required: true, min: -90, max: 90, default: 0 },
+      longitude: { type: Number, required: true, min: -180, max: 180, default: 0 },
+      locationGeoJson: {
+        type: { type: String, enum: ['Point'], default: 'Point' },
+        coordinates: { type: [Number], default: [0, 0] }, // [lng, lat]
+      },
     },
     rtspUrl: {
       type: String,

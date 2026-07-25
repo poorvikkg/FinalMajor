@@ -198,6 +198,33 @@ class LiveStreamManager:
                                     f"[{state.camera_id}] Webhook failed for {uid}: {e}"
                                 )
 
+                            # ── Unknown Person Clustering ─────────────────────────
+                            # Feed confirmed unknown faces into the cross-video
+                            # clustering system (separate from the webhook above)
+                            if uid == "unknown" and det.get("embedding"):
+                                try:
+                                    from services.unknown_person_manager import unknown_person_manager
+                                    snap = det.get("snapshot", "")
+                                    result = await unknown_person_manager.process_unknown_face(
+                                        embedding=det["embedding"],
+                                        quality_score=det.get("quality", 0) or 0,
+                                        camera_id=state.camera_id,
+                                        video_id=None,
+                                        snapshot_path=f"snapshots/{snap}" if snap else "",
+                                        track_id=det.get("track_id", 0),
+                                        confidence=det.get("confidence", 0),
+                                        timestamp=time.time(),
+                                    )
+                                    if result.action != "rejected":
+                                        logger.info(
+                                            f"[{state.camera_id}] Unknown clustering: "
+                                            f"{result.action} {result.unknown_id}"
+                                        )
+                                except Exception as e:
+                                    logger.error(
+                                        f"[{state.camera_id}] Unknown clustering failed: {e}"
+                                    )
+
                     # ── FPS cap ──────────────────────────────────────────────
                     elapsed = time.time() - t0
                     sleep   = max(0, frame_time - elapsed)

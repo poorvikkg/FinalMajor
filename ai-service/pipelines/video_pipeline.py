@@ -152,15 +152,16 @@ def process_video_file(
 
         for res in results:
             uid = res["user_id"]
-
-            # ── Only store matched faces ─────────────────────────────────
-            if uid == "unknown":
-                continue
+            is_unknown = (uid == "unknown")
 
             bbox = res.get("bbox", [])
-            snap_key = uid  # always a real user_id now
+            # Use track-based key for unknowns, user_id for known persons
+            if is_unknown:
+                snap_key = f"unknown_track{res.get('track_id', 0)}"
+            else:
+                snap_key = uid
 
-            # Quality-ranked snapshot: keep the sharpest frame per matched person
+            # Quality-ranked snapshot: keep the sharpest frame per detection
             if bbox:
                 x1, y1, x2, y2 = [int(v) for v in bbox[:4]]
                 crop = frame[max(0, y1):y2, max(0, x1):x2]
@@ -176,9 +177,11 @@ def process_video_file(
                 "track_id":      res.get("track_id"),
                 "user_id":       uid,
                 "confidence":    round(res["confidence"], 4),
-                "is_unknown":    False,
+                "is_unknown":    is_unknown,
                 "snap_key":      snap_key,
                 "snapshot_path": None,
+                "embedding":     res.get("embedding") if is_unknown else None,
+                "quality":       res.get("quality"),
             })
 
     cap.release()
@@ -198,6 +201,44 @@ def process_video_file(
         if key not in seen_keys:
             seen_keys.add(key)
             final_timeline.append(entry)
+
+            # Process unknown face through cross-video clustering manager
+            if entry.get("is_unknown") and entry.get("embedding"):
+                try:
+                    import asyncio
+                    from services.unknown_person_manager import unknown_person_manager
+                    video_id = os.path.basename(video_path)
+                    
+                    # If running inside an event loop use create_task, else asyncio.run
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(
+                            unknown_person_manager.process_unknown_face(
+                                embedding=np.array(entry["embedding"]),
+                                quality_score=entry.get("quality", 60.0) or 60.0,
+                                camera_id=camera_id if camera_id != "UPLOAD" else None,
+                                video_id=video_id,
+                                snapshot_path=entry["snapshot_path"] or "",
+                                track_id=entry.get("track_id", 0),
+                                confidence=entry.get("confidence", 0),
+                                timestamp=time.time(),
+                            )
+                        )
+                    except RuntimeError:
+                        asyncio.run(
+                            unknown_person_manager.process_unknown_face(
+                                embedding=np.array(entry["embedding"]),
+                                quality_score=entry.get("quality", 60.0) or 60.0,
+                                camera_id=camera_id if camera_id != "UPLOAD" else None,
+                                video_id=video_id,
+                                snapshot_path=entry["snapshot_path"] or "",
+                                track_id=entry.get("track_id", 0),
+                                confidence=entry.get("confidence", 0),
+                                timestamp=time.time(),
+                            )
+                        )
+                except Exception as e:
+                    logger.error(f"Failed to cluster unknown video face: {e}")
 
     elapsed = time.time() - start_time
     logger.info(

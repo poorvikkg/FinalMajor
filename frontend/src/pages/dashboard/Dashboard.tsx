@@ -30,19 +30,21 @@ interface DashboardData {
 }
 
 export const Dashboard: React.FC = () => {
-  const { data, isLoading } = useQuery<DashboardData>({
+  const { data, isLoading } = useQuery<DashboardData & { latestSightings: any[] }>({
     queryKey: ['dashboardData'],
     queryFn: async () => {
       try {
-        const [statsRes, alertsRes, complaintsRes] = await Promise.all([
+        const [statsRes, alertsRes, complaintsRes, sightingsRes] = await Promise.all([
           api.get('/dashboard/stats'),
           api.get('/dashboard/alerts'),
           api.get('/complaints?limit=5'),
+          api.get('/sightings?limit=5'),
         ]);
         return {
           stats: statsRes.data.data,
           alerts: alertsRes.data.data,
           complaints: complaintsRes.data.data,
+          latestSightings: sightingsRes.data.data || [],
         };
       } catch {
         return {
@@ -54,6 +56,7 @@ export const Dashboard: React.FC = () => {
           },
           alerts: [],
           complaints: [],
+          latestSightings: [],
         };
       }
     },
@@ -79,6 +82,11 @@ export const Dashboard: React.FC = () => {
         <StatCard
           title="Unknown Detections"
           value={isLoading ? '—' : stats?.recognitions?.unknownDetections ?? 0}
+        />
+        <StatCard
+          title="Review Required"
+          value={isLoading ? '—' : (stats as any)?.unknownPersons?.reviewRequired ?? 0}
+          description={`${(stats as any)?.unknownPersons?.recurring ?? 0} recurring identities`}
         />
         <StatCard
           title="Videos Processed"
@@ -147,6 +155,60 @@ export const Dashboard: React.FC = () => {
               ) : (
                 <div className="px-5 py-6 text-center text-[11px] text-slate-400 uppercase tracking-wider">
                   No active reports.
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Latest Geo-Located Sightings */}
+        <Card className="lg:col-span-2 border-slate-200">
+          <CardHeader className="flex flex-row items-center justify-between py-3">
+            <CardTitle className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Latest Geo-Located Sightings
+            </CardTitle>
+            <a
+              href="/detection-map"
+              className="text-[11px] font-bold text-slate-900 hover:underline uppercase tracking-wider"
+            >
+              View Detection Map &rarr;
+            </a>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-slate-100 text-xs">
+              {data?.latestSightings && data.latestSightings.length > 0 ? (
+                data.latestSightings.map((sighting: any) => (
+                  <div key={sighting._id} className="p-3.5 flex items-center justify-between hover:bg-slate-50">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 font-mono">
+                          {sighting.identityType === 'KNOWN'
+                            ? sighting.personId?.missingPersonName || 'Registered Subject'
+                            : sighting.unknownPersonId?.unknownId || 'Unknown Subject'}
+                        </span>
+                        <span
+                          className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded text-white ${
+                            sighting.identityType === 'KNOWN' ? 'bg-emerald-600' : 'bg-slate-900'
+                          }`}
+                        >
+                          {sighting.identityType}
+                        </span>
+                      </div>
+                      <p className="text-slate-500 font-medium">📍 {sighting.location?.name}</p>
+                    </div>
+                    <div className="text-right space-y-0.5">
+                      <p className="font-mono text-[11px] text-slate-500">
+                        {new Date(sighting.detectedAt).toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-bold">
+                        Match: {Math.round(sighting.similarity * 100)}%
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="p-6 text-center text-slate-400 text-xs uppercase tracking-wider">
+                  No location sightings recorded yet.
                 </div>
               )}
             </div>

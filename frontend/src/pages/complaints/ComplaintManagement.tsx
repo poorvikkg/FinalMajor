@@ -7,8 +7,10 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { CaseHistoryTimeline } from '../../components/shared/CaseHistoryTimeline';
+import { PersonMovementView } from '../../components/shared/PersonMovementView';
 import type { Complaint, ComplaintStatus } from '../../types';
 import { useAuthStore } from '../../store/auth';
+import { Navigation } from 'lucide-react';
 import api from '../../api';
 
 // ── Label maps ───────────────────────────────────────────────────────────────
@@ -69,13 +71,13 @@ export const ComplaintManagement: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
-  const isViewer = user?.role === 'station' || user?.role === 'viewer';
+  const isViewer = user?.role === 'station' || (user?.role as string) === 'viewer';
   const isOperator = user?.role === 'admin';
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selected, setSelected] = useState<Complaint | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'history'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'history' | 'map'>('details');
 
   // Status update form state (operator)
   const [newStatus, setNewStatus] = useState<ComplaintStatus>('complaint_registered');
@@ -122,7 +124,7 @@ export const ComplaintManagement: React.FC = () => {
     mutationFn: async ({ id, url }: { id: string; url: string }) => {
       await api.delete(`/complaints/${id}/attachments`, { data: { url } });
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['complaintsList'] });
       if (selected) {
         // Optimistically update the selected complaint so the UI reflects the change immediately
@@ -253,7 +255,7 @@ export const ComplaintManagement: React.FC = () => {
             <div className="space-y-4">
               {/* Tabs */}
               <div className="flex border-b border-slate-200">
-                {(['details', 'history'] as const).map((tab) => (
+                {(['details', 'map', 'history'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -263,7 +265,7 @@ export const ComplaintManagement: React.FC = () => {
                         : 'border-transparent text-slate-400 hover:text-slate-700'
                     }`}
                   >
-                    {tab === 'details' ? 'Case Details' : 'Timeline'}
+                    {tab === 'details' ? 'Case Details' : tab === 'map' ? 'Movement Map' : 'Timeline'}
                   </button>
                 ))}
               </div>
@@ -288,6 +290,8 @@ export const ComplaintManagement: React.FC = () => {
                     </div>
                   )}
                 </div>
+              ) : activeTab === 'map' ? (
+                <PersonMovementView personId={selected._id} personName={selected.missingPersonName} />
               ) : (
                 <CaseHistoryTimeline complaintId={selected._id} />
               )}
@@ -368,7 +372,20 @@ export const ComplaintManagement: React.FC = () => {
                       <td className="px-5 py-3 font-mono text-[11px] text-slate-400">
                         {new Date(t.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="px-5 py-3 text-right">
+                      <td className="px-5 py-3 text-right space-x-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            openDetail(t);
+                            setActiveTab('map');
+                          }}
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold"
+                          title="View Movement Map"
+                        >
+                          <Navigation className="h-3.5 w-3.5 mr-1" />
+                          Map
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => openDetail(t)}>
                           Manage
                         </Button>
@@ -399,7 +416,7 @@ export const ComplaintManagement: React.FC = () => {
             {/* Tabs */}
             <div className="flex justify-between items-center border-b border-slate-200">
               <div className="flex">
-                {(['details', 'history'] as const).map((tab) => (
+                {(['details', 'map', 'history'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -409,7 +426,7 @@ export const ComplaintManagement: React.FC = () => {
                         : 'border-transparent text-slate-400 hover:text-slate-700'
                     }`}
                   >
-                    {tab === 'details' ? 'Case Details' : 'Investigation Timeline'}
+                    {tab === 'details' ? 'Case Details' : tab === 'map' ? 'Movement Map' : 'Investigation Timeline'}
                   </button>
                 ))}
               </div>
@@ -626,6 +643,13 @@ export const ComplaintManagement: React.FC = () => {
                     </div>
                   </form>
                 )}
+              </div>
+            ) : activeTab === 'map' ? (
+              <div className="max-h-[60vh] overflow-y-auto pr-1">
+                <PersonMovementView personId={selected._id} personName={selected.missingPersonName} />
+                <div className="flex justify-end pt-4 border-t border-slate-100 mt-4">
+                  <Button variant="outline" onClick={() => setIsDetailOpen(false)}>Close</Button>
+                </div>
               </div>
             ) : (
               <div className="max-h-[60vh] overflow-y-auto pr-1">

@@ -12,16 +12,27 @@ import { RecognitionLog } from '../models/RecognitionLog';
 import { Complaint } from '../models/Complaint';
 import { SystemLog } from '../models/SystemLog';
 
+import { UnknownPerson } from '../models/UnknownPerson';
+
 export async function getDashboardStats() {
   // Run all counts in parallel — much faster than sequential queries
-  const [userCount, cameraStats, videosProcessed, todayRecognitions, unknownDetections] =
-    await Promise.all([
-      userRepo.countUsers(),
-      cameraRepo.getCameraStats(),
-      videoRepo.countVideos(),
-      recognitionRepo.countTodayRecognitions(),
-      recognitionRepo.countUnknownDetections(),
-    ]);
+  const [
+    userCount,
+    cameraStats,
+    videosProcessed,
+    todayRecognitions,
+    unknownDetections,
+    recurringUnknowns,
+    reviewRequiredUnknowns,
+  ] = await Promise.all([
+    userRepo.countUsers(),
+    cameraRepo.getCameraStats(),
+    videoRepo.countVideos(),
+    recognitionRepo.countTodayRecognitions(),
+    recognitionRepo.countUnknownDetections(),
+    UnknownPerson.countDocuments({ status: 'RECURRING' }),
+    UnknownPerson.countDocuments({ status: 'REVIEW_REQUIRED' }),
+  ]);
 
   return {
     users: { total: userCount },
@@ -30,6 +41,10 @@ export async function getDashboardStats() {
     recognitions: {
       today: todayRecognitions,
       unknownDetections,
+    },
+    unknownPersons: {
+      recurring: recurringUnknowns,
+      reviewRequired: reviewRequiredUnknowns,
     },
   };
 }

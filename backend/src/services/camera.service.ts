@@ -23,12 +23,42 @@ export async function getCameraById(id: string) {
   return camera;
 }
 
+function normalizeCameraLocation(location: any) {
+  if (!location) {
+    return { name: 'Unknown Location', latitude: 0, longitude: 0, locationGeoJson: { type: 'Point', coordinates: [0, 0] } };
+  }
+  if (typeof location === 'string') {
+    return { name: location, latitude: 0, longitude: 0, locationGeoJson: { type: 'Point', coordinates: [0, 0] } };
+  }
+  const name = location.name || 'Unknown Location';
+  const lat = typeof location.latitude === 'number' ? location.latitude : 0;
+  const lng = typeof location.longitude === 'number' ? location.longitude : 0;
+  return {
+    name,
+    latitude: lat,
+    longitude: lng,
+    locationGeoJson: {
+      type: 'Point',
+      coordinates: [lng, lat], // GeoJSON format: [longitude, latitude] !!
+    },
+  };
+}
+
 export async function createCamera(input: CreateCameraInput, userId: Types.ObjectId) {
-  return cameraRepo.createCamera({ ...input, addedBy: userId });
+  const normalizedInput = {
+    ...input,
+    location: normalizeCameraLocation(input.location),
+    addedBy: userId,
+  };
+  return cameraRepo.createCamera(normalizedInput as any);
 }
 
 export async function updateCamera(id: string, input: UpdateCameraInput) {
-  const camera = await cameraRepo.updateCamera(id, input);
+  const updateData: any = { ...input };
+  if (input.location) {
+    updateData.location = normalizeCameraLocation(input.location);
+  }
+  const camera = await cameraRepo.updateCamera(id, updateData);
   if (!camera) throw new AppError('Camera not found', 404);
   return camera;
 }

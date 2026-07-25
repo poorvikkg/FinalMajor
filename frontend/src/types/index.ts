@@ -14,10 +14,16 @@ export interface User {
 export type CameraStatus = 'online' | 'offline' | 'maintenance';
 export type CameraType = 'ip' | 'rtsp' | 'usb' | 'cloud';
 
+export interface CameraLocation {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
 export interface Camera {
   _id: string;
   name: string;
-  location: string;
+  location: CameraLocation | string;
   rtspUrl?: string;
   ipAddress?: string;
   type: CameraType;
@@ -34,6 +40,7 @@ export interface Camera {
 }
 
 export type VideoStatus = 'uploaded' | 'queued' | 'processing' | 'completed' | 'failed';
+export type VideoSourceType = 'REGISTERED_CCTV' | 'OTHER_LOCATION';
 
 export interface Video {
   _id: string;
@@ -48,10 +55,17 @@ export interface Video {
     name: string;
     email: string;
   };
+  sourceType?: VideoSourceType;
+  location?: {
+    name?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  recordedAt?: string;
   cameraId?: string | {
     _id: string;
     name: string;
-    location: string;
+    location: CameraLocation | string;
   };
   status: VideoStatus;
   processingResult?: {
@@ -60,6 +74,60 @@ export interface Video {
     timeline?: Array<{ timestamp: number; label: string }>;
   };
   errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ──────────────────────────────────────────
+// Sighting Types
+// ──────────────────────────────────────────
+
+export type SightingIdentityType = 'KNOWN' | 'UNKNOWN';
+export type SightingSourceType = 'LIVE_CCTV' | 'UPLOADED_VIDEO';
+
+export interface SightingLocation {
+  name: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface Sighting {
+  _id: string;
+  identityType: SightingIdentityType;
+  personId?: {
+    _id: string;
+    complaintId?: string;
+    missingPersonName?: string;
+    attachments?: string[];
+    status?: string;
+  };
+  unknownPersonId?: {
+    _id: string;
+    unknownId: string;
+    status: 'UNKNOWN' | 'RECURRING' | 'REVIEW_REQUIRED';
+    representativeSnapshot?: string;
+  };
+  cameraId?: {
+    _id: string;
+    name: string;
+    location: CameraLocation | string;
+    status: string;
+  };
+  videoId?: {
+    _id: string;
+    originalName: string;
+    filename: string;
+    location?: { name?: string; latitude?: number; longitude?: number };
+    recordedAt?: string;
+  };
+  sourceType: SightingSourceType;
+  location: SightingLocation;
+  locationAvailable: boolean;
+  detectedAt: string;
+  videoTimestampSeconds?: number;
+  similarity: number;
+  snapshotObjectKey?: string;
+  trackId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,6 +167,60 @@ export interface UnknownFace {
   isAlerted: boolean;
   timestamp: string;
   createdAt: string;
+}
+
+// ──────────────────────────────────────────
+// Recurring Unknown Person Types
+// ──────────────────────────────────────────
+
+export type UnknownPersonStatus = 'UNKNOWN' | 'RECURRING' | 'REVIEW_REQUIRED';
+
+export interface UnknownPersonAppearance {
+  videoId?: {
+    _id: string;
+    originalName: string;
+  };
+  cameraId?: {
+    _id: string;
+    name: string;
+    location: string;
+  };
+  timestamp: string;
+  detectedAt: string;
+  snapshotObjectKey: string;
+  trackId?: number;
+  similarity: number;
+  qualityScore: number;
+}
+
+export interface UnknownPerson {
+  _id: string;
+  unknownId: string;
+  representativeSnapshot: string;
+  status: UnknownPersonStatus;
+  appearanceCount: number;
+  distinctVideoCount: number;
+  distinctCameraCount: number;
+  firstSeen: string;
+  lastSeen: string;
+  appearances: UnknownPersonAppearance[];
+  isReviewed: boolean;
+  reviewedBy?: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  reviewedAt?: string;
+  reviewAction?: 'reviewed' | 'associated' | 'dismissed';
+  associatedCaseId?: {
+    _id: string;
+    complaintId?: string;
+    missingPersonName?: string;
+    status?: string;
+  };
+  reviewNotes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ──────────────────────────────────────────

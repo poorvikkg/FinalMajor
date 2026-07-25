@@ -10,6 +10,8 @@ import {
   Users,
   ScanSearch,
   FilePlus,
+  UserSearch,
+  MapPin,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -19,11 +21,12 @@ export const Sidebar: React.FC = () => {
     { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin'] },
     { to: '/monitoring', label: 'Live Monitoring', icon: Tv, roles: ['admin'] },
     { to: '/analyse', label: 'Video Analysis', icon: ScanSearch, roles: ['admin'] },
+    { to: '/detection-map', label: 'Detection Map', icon: MapPin, roles: ['admin', 'station'] },
     { to: '/cameras', label: 'Camera Management', icon: Camera, roles: ['admin'] },
     { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },
     { to: '/file-case', label: 'Register Complaint', icon: FilePlus, roles: ['admin', 'station'] },
     { to: '/complaints', label: 'View All Complaints', icon: FileQuestion, roles: ['admin', 'station'] },
-    { to: '/suspects', label: 'Suspects', icon: Users, roles: ['admin'] },
+    { to: '/recurring-unknowns', label: 'Recurring Unknowns', icon: UserSearch, roles: ['admin'] },
     { to: '/users', label: 'Station Management', icon: Users, roles: ['admin'] },
   ];
 

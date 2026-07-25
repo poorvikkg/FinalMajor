@@ -25,12 +25,55 @@ export async function getVideoById(id: string) {
   return video;
 }
 
+import { findCameraById } from '../repositories/camera.repository';
+
 // Called after Multer saves the file to disk
 export async function saveUploadedVideo(
   file: Express.Multer.File,
   userId: Types.ObjectId,
-  cameraId?: string
+  options: {
+    sourceType?: 'REGISTERED_CCTV' | 'OTHER_LOCATION';
+    cameraId?: string;
+    locationName?: string;
+    latitude?: number;
+    longitude?: number;
+    recordedAt?: Date | string;
+  } = {}
 ) {
+  let locationData: { name: string; latitude: number; longitude: number } | undefined = undefined;
+  let camId: Types.ObjectId | undefined = undefined;
+
+  if (options.cameraId) {
+    camId = new Types.ObjectId(options.cameraId);
+  }
+
+  if (options.sourceType === 'REGISTERED_CCTV' && options.cameraId) {
+    const camera = await findCameraById(options.cameraId);
+    if (camera && camera.location) {
+      if (typeof camera.location === 'object') {
+        locationData = {
+          name: camera.location.name || camera.name,
+          latitude: camera.location.latitude || 0,
+          longitude: camera.location.longitude || 0,
+        };
+      } else {
+        locationData = {
+          name: camera.location || camera.name,
+          latitude: 0,
+          longitude: 0,
+        };
+      }
+    }
+  } else if (options.locationName || options.latitude !== undefined) {
+    locationData = {
+      name: options.locationName || 'Uploaded Video Location',
+      latitude: options.latitude ?? 0,
+      longitude: options.longitude ?? 0,
+    };
+  }
+
+  const recordedAtDate = options.recordedAt ? new Date(options.recordedAt) : new Date();
+
   return videoRepo.createVideo({
     filename: file.filename,
     originalName: file.originalname,
@@ -38,9 +81,12 @@ export async function saveUploadedVideo(
     size: file.size,
     path: file.path,
     uploadedBy: userId,
-    cameraId: cameraId ? new Types.ObjectId(cameraId) : undefined,
+    cameraId: camId,
+    sourceType: options.sourceType || (options.cameraId ? 'REGISTERED_CCTV' : 'OTHER_LOCATION'),
+    location: locationData,
+    recordedAt: recordedAtDate,
     status: 'uploaded',
-  });
+  } as any);
 }
 
 export async function processVideo(videoId: string, targetUserId?: string) {

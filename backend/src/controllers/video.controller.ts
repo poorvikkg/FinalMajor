@@ -34,10 +34,20 @@ export async function upload(req: AuthRequest, res: Response, next: NextFunction
   try {
     if (!req.file) throw new AppError('No video file uploaded', 400);
 
+    const latitude = req.body.latitude !== undefined ? parseFloat(req.body.latitude) : undefined;
+    const longitude = req.body.longitude !== undefined ? parseFloat(req.body.longitude) : undefined;
+
     const video = await videoService.saveUploadedVideo(
       req.file,
       req.user!._id,
-      req.body.cameraId
+      {
+        sourceType: req.body.sourceType,
+        cameraId: req.body.cameraId,
+        locationName: req.body.locationName,
+        latitude,
+        longitude,
+        recordedAt: req.body.recordedAt,
+      }
     );
     sendSuccess(res, 'Video uploaded successfully', video, 201);
   } catch (err) {
@@ -81,11 +91,21 @@ export async function analyseVideo(
   try {
     if (!req.file) throw new AppError('No video file provided', 400);
 
-    // Save the video record
+    const latitude = req.body.latitude !== undefined ? parseFloat(req.body.latitude) : undefined;
+    const longitude = req.body.longitude !== undefined ? parseFloat(req.body.longitude) : undefined;
+
+    // Save the video record with location & recording time
     const video = await videoService.saveUploadedVideo(
       req.file,
       req.user!._id,
-      req.body.cameraId
+      {
+        sourceType: req.body.sourceType,
+        cameraId: req.body.cameraId,
+        locationName: req.body.locationName,
+        latitude,
+        longitude,
+        recordedAt: req.body.recordedAt,
+      }
     );
 
     // Immediately queue it for processing

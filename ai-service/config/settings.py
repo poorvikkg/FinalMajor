@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     
     # Frame Processing
     LIVE_STREAM_FPS_CAP: int = 15
+
+    # ── Unknown Person Clustering ─────────────────────────
+    UNKNOWN_MATCH_THRESHOLD: float = 0.50       # cosine sim for unknown-to-unknown FAISS match
+    UNKNOWN_CONFIRMATION_FRAMES: int = 3        # multi-frame confirmation before creating identity
+    UNKNOWN_RECURRING_VIDEO_THRESHOLD: int = 4  # distinct videos → RECURRING
+    UNKNOWN_REVIEW_VIDEO_THRESHOLD: int = 11    # distinct videos → REVIEW_REQUIRED
+    UNKNOWN_MIN_QUALITY_SCORE: float = 50.0     # min Laplacian variance for unknown face quality
+    UNKNOWN_SNAPSHOTS_DIR: str = os.path.join(BASE_DIR, "..", "backend", "uploads", "unknown_snapshots")
+    UNKNOWN_MONGODB_COLLECTION: str = "unknownpersons"
     
     class Config:
         env_file = ".env"
@@ -58,6 +67,7 @@ for directory in [
     settings.UNKNOWN_DIR, 
     settings.VIDEOS_DIR,
     settings.SNAPSHOTS_DIR,
+    settings.UNKNOWN_SNAPSHOTS_DIR,
     os.path.join(settings.BASE_DIR, "logs")
 ]:
     os.makedirs(directory, exist_ok=True)

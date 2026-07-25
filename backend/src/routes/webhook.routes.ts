@@ -6,11 +6,14 @@
  */
 
 import { Router } from 'express';
-import { handleAiRecognitionWebhook } from '../controllers/webhook.controller';
+import { handleAiRecognitionWebhook, handleUnknownStatusChangeWebhook } from '../controllers/webhook.controller';
 
 const router = Router();
 
 // Endpoint for the AI service to push live match & unknown detection alerts
 router.post('/recognitions', handleAiRecognitionWebhook);
+
+// Endpoint for the AI service to push status change events (UNKNOWN → RECURRING → REVIEW_REQUIRED)
+router.post('/unknown-status-change', handleUnknownStatusChangeWebhook);
 
 export default router;

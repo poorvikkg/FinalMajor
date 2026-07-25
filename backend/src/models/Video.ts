@@ -37,6 +37,20 @@ const VideoSchema = new Schema<IVideoDocument>(
       ref: 'User',
       required: true,
     },
+    sourceType: {
+      type: String,
+      enum: ['REGISTERED_CCTV', 'OTHER_LOCATION'],
+      default: 'OTHER_LOCATION',
+    },
+    location: {
+      name: { type: String, trim: true },
+      latitude: { type: Number, min: -90, max: 90 },
+      longitude: { type: Number, min: -180, max: 180 },
+    },
+    recordedAt: {
+      type: Date,
+      default: Date.now,
+    },
     cameraId: {
       type: Schema.Types.ObjectId,
       ref: 'Camera',

@@ -32,12 +32,14 @@ def align_face(img: np.ndarray, landmarks: np.ndarray, enhance: bool = True) -> 
     Returns:
         112×112 BGR aligned face.
     """
-    from skimage import transform as trans
-
     lmks = np.array(landmarks, dtype=np.float32).reshape(5, 2)
-    tform = trans.SimilarityTransform()
-    tform.estimate(lmks, _ARCFACE_REF)
-    M = tform.params[:2, :]
+    try:
+        from skimage import transform as trans
+        tform = trans.SimilarityTransform()
+        tform.estimate(lmks, _ARCFACE_REF)
+        M = tform.params[:2, :]
+    except ImportError:
+        M, _ = cv2.estimateAffinePartial2D(lmks, _ARCFACE_REF)
 
     aligned = cv2.warpAffine(
         img, M, (112, 112),

@@ -46,21 +46,43 @@ const worker = new Worker('video-processing', async (job: Job) => {
 
     // Save recognition logs (deduplicated per user_id)
     const timeline = aiData.timeline || [];
+
+    // Collect all known user IDs and track IDs identified in this video
+    const knownUserIds = new Set<string>();
+    const knownTrackIds = new Set<number>();
+    for (const log of timeline) {
+      if (!log.is_unknown && log.user_id && log.user_id !== 'unknown') {
+        knownUserIds.add(log.user_id);
+        if (log.track_id !== undefined) knownTrackIds.add(log.track_id);
+      }
+    }
+
+    // Filter timeline: Discard all spurious unknown entries if a known target subject is identified in this video
+    const filteredTimeline = timeline.filter((log: any) => {
+      if (knownUserIds.size > 0 && (log.is_unknown || log.user_id === 'unknown')) {
+        return false;
+      }
+      return true;
+    });
+
+
     const seenUserIds = new Set<string>();
 
-    for (const log of timeline) {
-      const dedupeKey = log.is_unknown || log.user_id === 'unknown' ? `unknown_${Math.round(log.confidence * 10)}` : log.user_id;
+    for (const log of filteredTimeline) {
+      const dedupeKey = log.is_unknown || log.user_id === 'unknown' ? `unknown_${log.track_id || Math.round(log.confidence * 10)}` : log.user_id;
       if (seenUserIds.has(dedupeKey)) continue;
       seenUserIds.add(dedupeKey);
+
 
       let resolvedPersonName: string | undefined;
       if (!log.is_unknown && log.user_id !== 'unknown') {
         try {
           const complaint = await complaintRepo.findComplaintById(log.user_id);
-          resolvedPersonName = complaint?.missingPersonName || `Subject ${log.user_id.substring(0, 6)}`;
+          resolvedPersonName = complaint?.missingPersonName || (complaint as any)?.name || `Subject ${log.user_id.substring(0, 6)}`;
         } catch {
           resolvedPersonName = `Subject ${log.user_id.substring(0, 6)}`;
         }
+
       }
 
       await logRecognition({

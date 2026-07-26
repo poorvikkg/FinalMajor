@@ -27,6 +27,12 @@ def _laplacian_variance(img: np.ndarray) -> float:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
+def _cosine_similarity(v1: np.ndarray, v2: np.ndarray) -> float:
+    n1 = np.linalg.norm(v1)
+    n2 = np.linalg.norm(v2)
+    if n1 < 1e-6 or n2 < 1e-6:
+        return 0.0
+    return float(np.dot(v1, v2) / (n1 * n2))
 
 def _save_best_snapshot(best_frames: dict) -> dict:
     """
@@ -155,7 +161,6 @@ def process_video_file(
             is_unknown = (uid == "unknown")
 
             bbox = res.get("bbox", [])
-            # Use track-based key for unknowns, user_id for known persons
             if is_unknown:
                 snap_key = f"unknown_track{res.get('track_id', 0)}"
             else:
@@ -187,58 +192,123 @@ def process_video_file(
     cap.release()
     reader.join(timeout=5)
 
-    # ── Save best snapshots ──────────────────────────────────────────────────
-    saved = _save_best_snapshot({k: v[:2] for k, v in best_crops.items()})
+    # ── Resolve Known Tracks & Clean Timeline ─────────────────────────────
+    track_known_map: dict = {}
 
-    # Resolve snapshot filenames in timeline, deduplicate per snap_key
-    seen_keys: set = set()
-    final_timeline = []
+    # 1. Collect known user_id for any track that matched a known person at any frame
     for entry in timeline:
-        key = entry.pop("snap_key")
+        if not entry["is_unknown"] and entry.get("user_id") and entry.get("user_id") != "unknown":
+            track_known_map[entry["track_id"]] = entry["user_id"]
+
+    # 2. Also search FaissManager for any unknown embeddings (threshold 0.22 for video processing)
+    from services.faiss_manager import faiss_manager
+    for entry in timeline:
+        if entry["is_unknown"] and entry.get("embedding"):
+            emb = np.array(entry["embedding"], dtype=np.float32)
+            if target_user_id and target_user_id != "undefined":
+                from cache.embedding_cache import embedding_cache
+                target_embs = embedding_cache.get(target_user_id)
+                if target_embs:
+                    sims = [_cosine_similarity(emb, e) for e in target_embs if e.size == 512]
+                    if sims and max(sims) >= 0.22:
+                        track_known_map[entry["track_id"]] = target_user_id
+                        continue
+
+            match = faiss_manager.search(emb, threshold=0.22)
+            if match:
+                known_uid, _ = match
+                track_known_map[entry["track_id"]] = known_uid
+
+    # 3. If target_user_id was matched for ANY track in the video, assign all tracks in this video to target_user_id
+    if target_user_id and target_user_id != "undefined":
+        if any(uid == target_user_id for uid in track_known_map.values()):
+            for entry in timeline:
+                track_known_map[entry["track_id"]] = target_user_id
+
+    # 4. Override timeline entries for resolved tracks
+    for entry in timeline:
+        tid = entry.get("track_id")
+        if tid in track_known_map:
+            entry["is_unknown"] = False
+            entry["user_id"] = track_known_map[tid]
+
+    # 5. Remap best_crops keys so resolved tracks get green IDENTIFIED snapshot labels
+    remapped_best_crops = {}
+    for snap_key, data in best_crops.items():
+        if snap_key.startswith("unknown_track"):
+            try:
+                tid = int(snap_key.replace("unknown_track", ""))
+                if tid in track_known_map:
+                    new_key = track_known_map[tid]
+                    if new_key not in remapped_best_crops or data[2] > remapped_best_crops[new_key][2]:
+                        remapped_best_crops[new_key] = data
+                    continue
+            except Exception:
+                pass
+        remapped_best_crops[snap_key] = data
+
+    saved = _save_best_snapshot({k: v[:2] for k, v in remapped_best_crops.items()})
+
+    # 6. Group timeline entries by resolved key, keeping the HIGHEST confidence entry
+    grouped_entries: dict = {}
+    for entry in timeline:
+        key = entry.pop("snap_key", None)
+        tid = entry.get("track_id")
+        if tid in track_known_map:
+            key = track_known_map[tid]
+        elif not key:
+            key = entry.get("user_id", "unknown")
+
         fname = saved.get(key)
         entry["snapshot_path"] = f"snapshots/{fname}" if fname else None
-        # Only include first occurrence per unique detection in final output
-        if key not in seen_keys:
-            seen_keys.add(key)
-            final_timeline.append(entry)
 
-            # Process unknown face through cross-video clustering manager
-            if entry.get("is_unknown") and entry.get("embedding"):
+        existing = grouped_entries.get(key)
+        if existing is None or entry.get("confidence", 0) > existing.get("confidence", 0):
+            grouped_entries[key] = entry
+
+    final_timeline = list(grouped_entries.values())
+
+    # 7. If target person is identified, filter out any residual 0-confidence unknown entries
+    if any(not e.get("is_unknown") for e in final_timeline):
+        final_timeline = [e for e in final_timeline if not e.get("is_unknown")]
+
+    for entry in final_timeline:
+        # Process unknown face through cross-video clustering manager ONLY if truly unknown
+        if entry.get("is_unknown") and entry.get("embedding"):
+            try:
+                import asyncio
+                from services.unknown_person_manager import unknown_person_manager
+                video_id = os.path.basename(video_path)
+                
                 try:
-                    import asyncio
-                    from services.unknown_person_manager import unknown_person_manager
-                    video_id = os.path.basename(video_path)
-                    
-                    # If running inside an event loop use create_task, else asyncio.run
-                    try:
-                        loop = asyncio.get_running_loop()
-                        loop.create_task(
-                            unknown_person_manager.process_unknown_face(
-                                embedding=np.array(entry["embedding"]),
-                                quality_score=entry.get("quality", 60.0) or 60.0,
-                                camera_id=camera_id if camera_id != "UPLOAD" else None,
-                                video_id=video_id,
-                                snapshot_path=entry["snapshot_path"] or "",
-                                track_id=entry.get("track_id", 0),
-                                confidence=entry.get("confidence", 0),
-                                timestamp=time.time(),
-                            )
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(
+                        unknown_person_manager.process_unknown_face(
+                            embedding=np.array(entry["embedding"]),
+                            quality_score=entry.get("quality", 60.0) or 60.0,
+                            camera_id=camera_id if camera_id != "UPLOAD" else None,
+                            video_id=video_id,
+                            snapshot_path=entry["snapshot_path"] or "",
+                            track_id=entry.get("track_id", 0),
+                            confidence=entry.get("confidence", 0),
+                            timestamp=time.time(),
                         )
-                    except RuntimeError:
-                        asyncio.run(
-                            unknown_person_manager.process_unknown_face(
-                                embedding=np.array(entry["embedding"]),
-                                quality_score=entry.get("quality", 60.0) or 60.0,
-                                camera_id=camera_id if camera_id != "UPLOAD" else None,
-                                video_id=video_id,
-                                snapshot_path=entry["snapshot_path"] or "",
-                                track_id=entry.get("track_id", 0),
-                                confidence=entry.get("confidence", 0),
-                                timestamp=time.time(),
-                            )
+                    )
+                except RuntimeError:
+                    asyncio.run(
+                        unknown_person_manager.process_unknown_face(
+                            embedding=np.array(entry["embedding"]),
+                            quality_score=entry.get("quality", 60.0) or 60.0,
+                            camera_id=camera_id if camera_id != "UPLOAD" else None,
+                            video_id=video_id,
+                            snapshot_path=entry["snapshot_path"] or "",
+                            track_id=entry.get("track_id", 0),
+                            confidence=entry.get("confidence", 0),
+                            timestamp=time.time(),
                         )
-                except Exception as e:
-                    logger.error(f"Failed to cluster unknown video face: {e}")
+                    )
+            except Exception as e:
+                logger.error(f"Failed to cluster unknown video face: {e}")
 
     elapsed = time.time() - start_time
     logger.info(

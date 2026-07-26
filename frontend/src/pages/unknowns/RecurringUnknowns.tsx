@@ -15,14 +15,9 @@ import {
   Eye,
 } from 'lucide-react';
 
-const getSnapshotUrl = (pathStr: string) => {
-  if (!pathStr) return '';
-  const normalized = pathStr.replace(/\\/g, '/');
-  if (normalized.startsWith('http')) return normalized;
-  return `/${normalized}`;
-};
-
+import { getSnapshotUrl } from '../../utils/pathPrediction';
 import { SightingMap } from '../../components/map/SightingMap';
+
 
 export function RecurringUnknowns() {
   const [page, setPage] = useState(1);

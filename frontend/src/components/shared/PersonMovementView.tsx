@@ -1,16 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SightingMap } from '../map/SightingMap';
 import api from '../../api';
 import type { Sighting } from '../../types';
-import { MapPin, Navigation } from 'lucide-react';
-
-const getSnapshotUrl = (pathStr?: string) => {
-  if (!pathStr) return '';
-  const normalized = pathStr.replace(/\\/g, '/');
-  if (normalized.startsWith('http')) return normalized;
-  return `/${normalized}`;
-};
+import { calculatePersonPathPrediction, getSnapshotUrl } from '../../utils/pathPrediction';
+import { MapPin, Navigation, Compass, Target, Sparkles } from 'lucide-react';
 
 interface PersonMovementViewProps {
   personId: string;
@@ -29,6 +23,10 @@ export const PersonMovementView: React.FC<PersonMovementViewProps> = ({
     },
     enabled: !!personId,
   });
+
+  const prediction = useMemo(() => {
+    return calculatePersonPathPrediction(sightings);
+  }, [sightings]);
 
   if (isLoading) {
     return (
@@ -79,18 +77,64 @@ export const PersonMovementView: React.FC<PersonMovementViewProps> = ({
         </div>
       </div>
 
+      {/* Path Prediction Details Card (If multi-location spotted) */}
+      {prediction && prediction.hasMultipleLocations && (
+        <div className="bg-rose-950/20 border border-rose-200 p-3.5 rounded-xl space-y-2 text-xs">
+          <div className="flex items-center justify-between border-b border-rose-200/60 pb-2">
+            <span className="font-bold text-rose-900 flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-rose-600 animate-pulse" />
+              Path Prediction Trajectory Analysis
+            </span>
+            <span className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold font-mono">
+              Vector Heading Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-slate-800 pt-1">
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                <Compass className="h-3 w-3 text-rose-600" /> Probable Heading
+              </p>
+              <p className="font-bold text-rose-700">{prediction.bearingLabel}</p>
+              <p className="text-[10px] text-slate-500 font-mono">Speed: {prediction.recentSpeedKmH || 4.5} km/h</p>
+            </div>
+
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Total Distance</p>
+              <p className="font-bold font-mono text-slate-900">{(prediction.totalDistanceMeters / 1000).toFixed(2)} km</p>
+              <p className="text-[10px] text-slate-500">Across {prediction.observedPoints.length} camera spots</p>
+            </div>
+
+            <div className="space-y-0.5">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                <Target className="h-3 w-3 text-rose-600" /> Next Destination (+15m)
+              </p>
+              <p className="font-bold font-mono text-rose-700">ETA: {prediction.predictedWaypoints[0]?.estimatedTime}</p>
+              <p className="text-[10px] text-slate-500 font-mono">
+                Coords: {prediction.predictedWaypoints[0]?.latitude.toFixed(4)}, {prediction.predictedWaypoints[0]?.longitude.toFixed(4)}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Interactive Movement Map */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-1">
           <span className="flex items-center gap-1.5">
             <Navigation className="h-3.5 w-3.5 text-slate-900" />
-            Observed Movement Path & Sighting Map
+            Observed & Predicted Trajectory Map
           </span>
           <span className="text-[10px] text-slate-500 font-mono">
             Chronological Sequence (#1 to #{sightings.length})
           </span>
         </div>
-        <SightingMap sightings={sightings} height="360px" showSequenceLine={true} />
+        <SightingMap
+          sightings={sightings}
+          height="380px"
+          showSequenceLine={true}
+          showPredictivePath={true}
+        />
       </div>
 
       {/* Chronological Movement Sequence List */}
@@ -116,6 +160,9 @@ export const PersonMovementView: React.FC<PersonMovementViewProps> = ({
                   src={getSnapshotUrl(sighting.snapshotObjectKey)}
                   alt="Snapshot"
                   className="w-12 h-12 rounded-lg object-cover border border-slate-300 shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
                 />
               ) : (
                 <div className="w-12 h-12 rounded-lg bg-slate-200 flex items-center justify-center text-[10px] text-slate-400 font-bold shrink-0">
@@ -141,8 +188,8 @@ export const PersonMovementView: React.FC<PersonMovementViewProps> = ({
                 <p className="text-[10px] text-slate-400">
                   Source:{' '}
                   {sighting.sourceType === 'LIVE_CCTV'
-                    ? `Live CCTV — ${sighting.cameraId?.name || 'Camera'}`
-                    : `Uploaded Video — ${sighting.videoId?.originalName || 'Video File'}`}
+                    ? `Live CCTV — ${typeof sighting.cameraId === 'object' && sighting.cameraId !== null ? sighting.cameraId.name : 'Camera'}`
+                    : `Uploaded Video — ${typeof sighting.videoId === 'object' && sighting.videoId !== null ? sighting.videoId.originalName : 'Video File'}`}
                   {sighting.videoTimestampSeconds !== undefined &&
                     ` (Timestamp: ${sighting.videoTimestampSeconds.toFixed(1)}s)`}
                 </p>

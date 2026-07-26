@@ -306,8 +306,23 @@ class UnknownPersonManager:
 
         ts = timestamp or time.time()
 
+        # Check against Registered Target Persons in Known FAISS first
+        try:
+            from services.faiss_manager import faiss_manager
+            known_match = faiss_manager.search(emb, threshold=max(0.35, settings.RECOGNITION_THRESHOLD - 0.05))
+            if known_match:
+                known_uid, known_sim = known_match
+                logger.info(
+                    f"UNKNOWN_MATCH_REJECTED: Face matches registered target person '{known_uid}' "
+                    f"(similarity={known_sim:.3f}). Skipping unknown person creation."
+                )
+                return ProcessResult(action="rejected")
+        except Exception as e:
+            logger.warning(f"Known FAISS pre-check failed during unknown processing: {e}")
+
         # Search Unknown FAISS
         match = self.faiss_index.search(emb, settings.UNKNOWN_MATCH_THRESHOLD)
+
 
         if match is not None:
             faiss_idx, similarity = match

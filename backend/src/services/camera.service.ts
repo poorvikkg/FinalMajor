@@ -113,3 +113,65 @@ export async function stopCamera(id: string) {
 
   return cameraRepo.updateCamera(id, { status: 'offline' });
 }
+
+function calculateHaversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+export async function triggerCorridorCameras(
+  points: { latitude: number; longitude: number }[],
+  radiusMeters = 2000,
+  targetUserId?: string
+) {
+  if (!points || points.length === 0) {
+    throw new AppError('No trajectory points provided', 400);
+  }
+
+  const { cameras } = await cameraRepo.findAllCameras({ page: 1, limit: 1000, skip: 0 });
+
+  const triggeredCameras: any[] = [];
+  const errors: string[] = [];
+
+  for (const camera of cameras) {
+    const loc = typeof camera.location === 'object' ? camera.location as any : null;
+    const camLat = loc?.latitude;
+    const camLng = loc?.longitude;
+    if (typeof camLat !== 'number' || typeof camLng !== 'number' || (camLat === 0 && camLng === 0)) {
+      continue;
+    }
+
+    let isNearPath = false;
+    for (const pt of points) {
+      const dist = calculateHaversineDistance(camLat, camLng, pt.latitude, pt.longitude);
+      if (dist <= radiusMeters) {
+        isNearPath = true;
+        break;
+      }
+    }
+
+    if (isNearPath) {
+      try {
+        const updated = await startCamera(camera._id.toString(), 'target', targetUserId);
+        triggeredCameras.push(updated);
+      } catch (err: any) {
+        errors.push(`Camera ${camera.name || camera._id}: ${err.message}`);
+      }
+    }
+  }
+
+  return {
+    triggeredCount: triggeredCameras.length,
+    triggeredCameras,
+    errors,
+  };
+}

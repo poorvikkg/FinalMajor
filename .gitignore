@@ -7,12 +7,25 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# ─── Environment Files ─────────────────────────────────────────────────────────
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+**/.env
+**/.env.*
+
+# ─── Dependencies / Build Outputs ──────────────────────────────────────────────
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# ─── Editor Files ──────────────────────────────────────────────────────────────
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -23,15 +36,38 @@ dist-ssr
 *.sln
 *.sw?
 
+# ─── Uploaded Files (videos, images) ───────────────────────────────────────────
+# Never commit user-uploaded content
+backend/uploads/
+**/uploads/
+ai-service/videos/
+ai-service/faces/
+
+# Video file extensions (anywhere in the project)
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.wmv
+*.flv
+*.webm
+*.m4v
+
+# ─── AI / ML Artifacts ─────────────────────────────────────────────────────────
 ai-service/venv/
 ai-service/models/
 ai-service/faiss/
-*.zip
 *.onnx
-backend/uploads/
-__pycache__/
-
+*.pkl
+*.pt
+*.pth
+*.bin
 buffalo_l/
+__pycache__/
+*.pyc
+*.pyo
 
-ai-service/videos/
-ai-service/faces/
+# ─── Archives ──────────────────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.rar

@@ -6,7 +6,7 @@
  */
 
 import { Router } from 'express';
-import { handleAiRecognitionWebhook, handleUnknownStatusChangeWebhook } from '../controllers/webhook.controller';
+import { handleAiRecognitionWebhook, handleUnknownStatusChangeWebhook, handleSuspectSightingWebhook } from '../controllers/webhook.controller';
 
 const router = Router();
 
@@ -15,5 +15,8 @@ router.post('/recognitions', handleAiRecognitionWebhook);
 
 // Endpoint for the AI service to push status change events (UNKNOWN → RECURRING → REVIEW_REQUIRED)
 router.post('/unknown-status-change', handleUnknownStatusChangeWebhook);
+
+// Endpoint for the AI service when an ALERTED camera confirms suspect detection (triggers relay hop)
+router.post('/suspect-sighting', handleSuspectSightingWebhook);
 
 export default router;

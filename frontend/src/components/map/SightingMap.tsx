@@ -185,25 +185,31 @@ export const SightingMap: React.FC<SightingMapProps> = ({
         if (!pred.observedPoints || pred.observedPoints.length === 0) continue;
 
         // 1. Fetch street network route for historical sightings
-        const obsRoute = await fetchOSRMRoute(pred.observedPoints, 'foot');
+        const obsRoute = await fetchOSRMRoute(pred.observedPoints, 'driving');
 
         // 2. Fetch street network route for predicted trajectory
+        let predRouteCoordinates: [number, number][] = [];
+        let routeSummary = obsRoute.summary;
+
         const lastObs = pred.observedPoints[pred.observedPoints.length - 1];
-        if (lastObs && pred.predictedWaypoints && pred.predictedWaypoints.length >= 2) {
+        if (lastObs && pred.predictedWaypoints && pred.predictedWaypoints.length >= 1) {
           const predPoints = [
             lastObs,
-            pred.predictedWaypoints[0],
-            pred.predictedWaypoints[1],
+            ...pred.predictedWaypoints,
           ];
-          const predRoute = await fetchOSRMRoute(predPoints, 'foot');
-
-          if (!isCancelled) {
-            newMap.set(pred.personKey, {
-              observedRoadCoords: obsRoute.coordinates,
-              predictedRoadCoords: predRoute.coordinates,
-              summary: obsRoute.summary || predRoute.summary,
-            });
+          const predRoute = await fetchOSRMRoute(predPoints, 'driving');
+          predRouteCoordinates = predRoute.coordinates;
+          if (predRoute.summary) {
+            routeSummary = routeSummary ? `${routeSummary} | ${predRoute.summary}` : predRoute.summary;
           }
+        }
+
+        if (!isCancelled) {
+          newMap.set(pred.personKey, {
+            observedRoadCoords: obsRoute.coordinates,
+            predictedRoadCoords: predRouteCoordinates,
+            summary: routeSummary,
+          });
         }
       }
 

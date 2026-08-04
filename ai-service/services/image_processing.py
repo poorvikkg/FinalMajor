@@ -70,13 +70,57 @@ def crop_face(img: np.ndarray, bbox: np.ndarray, margin: float = 0.25) -> np.nda
     return img[ny1:ny2, nx1:nx2]
 
 
-def compute_face_quality(img: np.ndarray) -> float:
+def align_face_tta(img: np.ndarray, landmarks: np.ndarray, enhance: bool = True) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Return a quality score (0–1) for a face crop.
-    Based on sharpness (Laplacian variance) normalised to [0,1].
-    Scores above ~0.3 are considered usable.
+    Returns ArcFace 112×112 aligned face crop AND its horizontally flipped version for Test-Time Augmentation (TTA).
     """
+    aligned = align_face(img, landmarks, enhance=enhance)
+    flipped = cv2.flip(aligned, 1)
+    return aligned, flipped
+
+
+def compute_head_pose_symmetry(landmarks: np.ndarray) -> float:
+    """
+    Evaluates keypoint symmetry ratio (eye-to-nose distances).
+    Returns symmetry score between 0.0 (extreme side profile) and 1.0 (perfect front view).
+    """
+    if landmarks is None or len(landmarks) < 5:
+        return 0.5
+    lmks = np.array(landmarks, dtype=np.float32).reshape(5, 2)
+    left_eye, right_eye, nose = lmks[0], lmks[1], lmks[2]
+    
+    dist_l = np.linalg.norm(left_eye - nose)
+    dist_r = np.linalg.norm(right_eye - nose)
+    if dist_l + dist_r < 1e-4:
+        return 0.0
+    
+    ratio = min(dist_l, dist_r) / max(dist_l, dist_r)
+    return float(np.clip(ratio, 0.0, 1.0))
+
+
+def compute_face_quality(img: np.ndarray, landmarks: Optional[np.ndarray] = None) -> float:
+    """
+    Multi-Factor Face Quality Index (FQI) (0.0 to 1.0).
+    Evaluates Sharpness, Head Pose Symmetry, and Exposure Balance.
+    """
+    if img is None or img.size == 0:
+        return 0.0
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+    
+    # 1. Sharpness score
     var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-    # Sigmoid-like normalisation: score → 1 as var → ∞
-    return float(1.0 - 1.0 / (1.0 + var / 200.0))
+    sharpness_score = float(1.0 - 1.0 / (1.0 + var / 200.0))
+    
+    # 2. Exposure score (punishes mean intensity < 30 or > 225)
+    mean_val = float(np.mean(gray))
+    if mean_val < 30 or mean_val > 225:
+        exposure_penalty = 0.5
+    else:
+        exposure_penalty = 1.0
+        
+    # 3. Head Pose Symmetry score
+    pose_score = compute_head_pose_symmetry(landmarks) if landmarks is not None else 1.0
+    
+    # Composite weighted Quality Index
+    fqi = (0.5 * sharpness_score + 0.3 * pose_score + 0.2 * exposure_penalty)
+    return round(float(fqi), 3)

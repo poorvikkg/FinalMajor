@@ -39,6 +39,8 @@ export function DetectionMapPage() {
   // Path Trajectory State
   const [showPredictivePath, setShowPredictivePath] = useState(true);
   const [activePathPersonKey, setActivePathPersonKey] = useState<string>('ALL');
+  const [isTriggeringCorridor, setIsTriggeringCorridor] = useState(false);
+  const [triggerStatusMessage, setTriggerStatusMessage] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -145,6 +147,37 @@ export function DetectionMapPage() {
       multiLocationPredictions[0]
     );
   }, [multiLocationPredictions, activePathPersonKey]);
+
+  const handleAutoTriggerCorridor = async () => {
+    if (!activePrediction) return;
+    setIsTriggeringCorridor(true);
+    setTriggerStatusMessage(null);
+
+    try {
+      const points = [
+        ...activePrediction.observedPoints.map((p) => ({ latitude: p.latitude, longitude: p.longitude })),
+        ...(activePrediction.predictedWaypoints || []).map((w) => ({ latitude: w.latitude, longitude: w.longitude })),
+      ];
+
+      const targetUserId =
+        activePrediction.identityType === 'KNOWN'
+          ? activePrediction.personKey.replace('known_', '')
+          : undefined;
+
+      const res = await api.post('/cameras/auto-trigger-corridor', {
+        points,
+        radiusMeters: 2000,
+        target_user_id: targetUserId,
+      });
+
+      const count = res.data?.data?.triggeredCount || 0;
+      setTriggerStatusMessage(`⚡ Auto-triggered ${count} CCTV stream(s) along suspect's movement corridor!`);
+    } catch (err: any) {
+      setTriggerStatusMessage(`Auto-trigger failed: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsTriggeringCorridor(false);
+    }
+  };
 
   return (
     <div className="space-y-5 pb-12 select-none">
@@ -287,19 +320,46 @@ export function DetectionMapPage() {
             </h2>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowPredictivePath(!showPredictivePath)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
-              showPredictivePath
-                ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Show Probable Trajectory</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {activePrediction && (
+              <button
+                type="button"
+                onClick={handleAutoTriggerCorridor}
+                disabled={isTriggeringCorridor}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-xs transition-all disabled:opacity-50"
+              >
+                <Zap className="h-3.5 w-3.5 fill-slate-950" />
+                <span>{isTriggeringCorridor ? 'Scanning Path...' : 'Auto-Trigger Path Cameras'}</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowPredictivePath(!showPredictivePath)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                showPredictivePath
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Show Probable Trajectory</span>
+            </button>
+          </div>
         </div>
+
+        {triggerStatusMessage && (
+          <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center justify-between">
+            <span>{triggerStatusMessage}</span>
+            <button
+              type="button"
+              onClick={() => setTriggerStatusMessage(null)}
+              className="text-amber-700 hover:text-amber-950 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Subject Selector & Metrics */}
         {multiLocationPredictions.length > 0 ? (

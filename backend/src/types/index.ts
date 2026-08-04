@@ -49,6 +49,7 @@ export interface ICamera {
   isActive: boolean;
   lastActive?: Date;
   addedBy: Types.ObjectId;
+  activeAlerts?: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }

@@ -75,4 +75,41 @@ export function emitNewSighting(sighting: object): void {
   }
 }
 
+// ─── Suspect Relay Chase Network Events ─────────────────────────────────────
+
+/** Fired when a brand-new SuspectAlert is created (first detection). */
+export function emitSuspectRelayAlert(data: object): void {
+  if (io) {
+    io.emit('suspect:relay:alert', data);
+  }
+}
+
+/** Fired on each subsequent relay hop (suspect confirmed on another camera). */
+export function emitSuspectRelayUpdated(data: object): void {
+  if (io) {
+    io.emit('suspect:relay:updated', data);
+  }
+}
+
+/** Fired when an alert is resolved or expired. */
+export function emitSuspectRelayResolved(data: object): void {
+  if (io) {
+    io.emit('suspect:relay:resolved', data);
+  }
+}
+
+/** Fired when a suspect enters a geofence zone. */
+export function emitZoneBreach(data: object): void {
+  if (io) {
+    io.emit('zone:breach', data);
+  }
+}
+
+/** Fired when a suspect's threat level escalates. */
+export function emitThreatEscalated(data: object): void {
+  if (io) {
+    io.emit('threat:escalated', data);
+  }
+}
+
 export { io };

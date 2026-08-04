@@ -82,3 +82,17 @@ export async function stopCamera(
     next(err);
   }
 }
+
+export async function autoTriggerCorridor(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { points, radiusMeters, target_user_id } = req.body;
+    const result = await cameraService.triggerCorridorCameras(points, radiusMeters, target_user_id);
+    sendSuccess(res, 'Corridor cameras triggered successfully', result);
+  } catch (err) {
+    next(err);
+  }
+}

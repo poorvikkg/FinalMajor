@@ -11,6 +11,7 @@ import { initializeSocket } from './socket/socket';
 import { initializeMinio } from './services/minio.service';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { expireStaleAlerts } from './services/suspectRelay.service';
 
 // Initialize BullMQ Workers
 import './queues/video.queue';
@@ -35,6 +36,18 @@ async function startServer(): Promise<void> {
     logger.info(`Server running on http://localhost:${env.port}`);
     logger.info(`Environment: ${env.nodeEnv}`);
   });
+
+  // 6. Suspect Alert auto-expiry — runs every 5 minutes
+  setInterval(async () => {
+    try {
+      const expired = await expireStaleAlerts();
+      if (expired > 0) {
+        logger.info({ expired }, '[SuspectRelay] Auto-expired stale alerts');
+      }
+    } catch (err) {
+      logger.warn({ err }, '[SuspectRelay] Error during alert expiry sweep');
+    }
+  }, 5 * 60 * 1000); // every 5 minutes
 
   // 6. Handle graceful shutdown
   process.on('SIGTERM', () => {

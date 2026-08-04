@@ -52,10 +52,10 @@ def _laplacian_variance(img_gray: np.ndarray) -> float:
     return float(cv2.Laplacian(img_gray, cv2.CV_64F).var())
 
 
-def _face_quality_score(frame: np.ndarray, bbox: np.ndarray) -> Tuple[bool, float]:
+def _face_quality_score(frame: np.ndarray, bbox: np.ndarray, landmarks: Optional[np.ndarray] = None) -> Tuple[bool, float]:
     """
-    Returns (is_ok, sharpness_score).
-    is_ok = passes minimum size + blur thresholds.
+    Returns (is_ok, quality_score).
+    is_ok = passes minimum size + multi-factor quality thresholds (sharpness, pose balance, exposure).
     """
     x1, y1, x2, y2 = bbox[:4].astype(int)
     w, h = x2 - x1, y2 - y1
@@ -64,9 +64,9 @@ def _face_quality_score(frame: np.ndarray, bbox: np.ndarray) -> Tuple[bool, floa
     face = frame[max(0, y1):y2, max(0, x1):x2]
     if face.size == 0:
         return False, 0.0
-    gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
-    score = _laplacian_variance(gray)
-    return score >= settings.BLUR_THRESHOLD, round(score, 2)
+    from services.image_processing import compute_face_quality
+    score = compute_face_quality(face, landmarks)
+    return score >= 0.25, round(score, 3)
 
 
 def _best_kps_for_bbox(bbox: np.ndarray, kpss: np.ndarray) -> Optional[np.ndarray]:
@@ -297,20 +297,36 @@ class RecognitionPipeline:
                 })
                 continue
 
-            # ── Face quality gate ─────────────────────────────────────────────
-            quality_ok, quality_score = _face_quality_score(frame, bbox)
+            # ── Keypoint → bbox matching ──────────────────────────────────────
+            kps = _best_kps_for_bbox(bbox, kpss)
+
+            # ── Face quality gate (multi-factor FQI with head pose balance) ───
+            quality_ok, quality_score = _face_quality_score(frame, bbox, kps)
             if not quality_ok:
                 continue
 
-            # ── Keypoint → bbox matching ──────────────────────────────────────
-            kps = _best_kps_for_bbox(bbox, kpss)
             if kps is None:
                 continue
 
-            # ── Align → embed ─────────────────────────────────────────────────
+            # ── Align → embed with temporal rolling accumulation ──────────────
             try:
                 aligned   = align_face(frame, kps)
-                embedding = recognizer.get_embedding(aligned)
+                raw_emb   = recognizer.get_embedding(aligned)
+                
+                # Temporal rolling accumulator across consecutive frames for same track
+                if hasattr(self, "_track_embeddings") and track_id in self._track_embeddings:
+                    prev_emb = self._track_embeddings[track_id]
+                    embedding = 0.75 * raw_emb + 0.25 * prev_emb
+                    norm = np.linalg.norm(embedding)
+                    if norm > 1e-6:
+                        embedding = embedding / norm
+                else:
+                    embedding = raw_emb
+
+                if not hasattr(self, "_track_embeddings"):
+                    self._track_embeddings = {}
+                self._track_embeddings[track_id] = embedding
+
             except Exception as e:
                 err_logger.warning(f"Embed error track {track_id}: {e}")
                 continue

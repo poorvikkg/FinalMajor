@@ -18,6 +18,8 @@ import { FileCase } from '../pages/cases/FileCase';
 import { AnalyseVideo } from '../pages/analysis/AnalyseVideo';
 import { RecurringUnknowns } from '../pages/unknowns/RecurringUnknowns';
 import { DetectionMapPage } from '../pages/map/DetectionMapPage';
+import { SuspectChaseMap } from '../pages/suspects/SuspectChaseMap';
+import { SuspectAlertList } from '../pages/suspects/SuspectAlertList';
 
 interface ProtectedProps {
   children: React.ReactElement;
@@ -112,7 +114,23 @@ export const AppRouter: React.FC = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/suspects" element={<Navigate to="/recurring-unknowns" replace />} />
+        <Route
+          path="/suspects/chase-map"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <SuspectChaseMap />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suspects/alerts"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <SuspectAlertList />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/suspects" element={<Navigate to="/suspects/alerts" replace />} />
         <Route
           path="/analyse"
           element={

@@ -212,7 +212,7 @@ function generateCurvedRoadPoints(
 
 export async function fetchOSRMRoute(
   points: { latitude: number; longitude: number }[],
-  profile: 'foot' | 'driving' = 'foot'
+  profile: 'foot' | 'driving' = 'driving'
 ): Promise<{ coordinates: [number, number][]; distance: number; duration: number; summary: string }> {
   if (!points || points.length < 2) {
     return {
@@ -223,7 +223,27 @@ export async function fetchOSRMRoute(
     };
   }
 
-  const coordString = points
+  // Deduplicate consecutive points that are virtually identical (< 5m apart)
+  const cleanPoints: { latitude: number; longitude: number }[] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = cleanPoints[cleanPoints.length - 1];
+    const curr = points[i];
+    const dist = calculateDistance(prev.latitude, prev.longitude, curr.latitude, curr.longitude);
+    if (dist >= 5) {
+      cleanPoints.push(curr);
+    }
+  }
+
+  if (cleanPoints.length < 2) {
+    return {
+      coordinates: cleanPoints.map((p) => [p.latitude, p.longitude]),
+      distance: 0,
+      duration: 0,
+      summary: '',
+    };
+  }
+
+  const coordString = cleanPoints
     .map((p) => `${p.longitude.toFixed(6)},${p.latitude.toFixed(6)}`)
     .join(';');
 
@@ -232,53 +252,57 @@ export async function fetchOSRMRoute(
     return routeCache.get(cacheKey)!;
   }
 
-  try {
-    const url = `https://router.project-osrm.org/route/v1/${profile}/${coordString}?overview=full&geometries=geojson&steps=true`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const profilesToTry = Array.from(new Set([profile, 'driving']));
 
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
+  for (const activeProfile of profilesToTry) {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/${activeProfile}/${coordString}?overview=full&geometries=geojson&steps=true`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-        const leafletCoords: [number, number][] = route.geometry.coordinates.map(
-          (c: [number, number]) => [c[1], c[0]]
-        );
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
-        let summaryStr = '';
-        if (route.legs && route.legs.length > 0) {
-          const names = route.legs
-            .map((leg: any) => leg.summary)
-            .filter((s: string) => s && s.trim().length > 0);
-          if (names.length > 0) {
-            summaryStr = `via ${Array.from(new Set(names)).join(' & ')}`;
+      if (response.ok) {
+        const data = await response.json();
+        if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          const leafletCoords: [number, number][] = route.geometry.coordinates.map(
+            (c: [number, number]) => [c[1], c[0]]
+          );
+
+          let summaryStr = '';
+          if (route.legs && route.legs.length > 0) {
+            const names = route.legs
+              .map((leg: any) => leg.summary)
+              .filter((s: string) => s && s.trim().length > 0);
+            if (names.length > 0) {
+              summaryStr = `via ${Array.from(new Set(names)).join(' & ')}`;
+            }
           }
+
+          const res = {
+            coordinates: leafletCoords,
+            distance: Math.round(route.distance),
+            duration: Math.round(route.duration),
+            summary: summaryStr || 'via Shortest Road Route',
+          };
+
+          routeCache.set(cacheKey, res);
+          return res;
         }
-
-        const res = {
-          coordinates: leafletCoords,
-          distance: Math.round(route.distance),
-          duration: Math.round(route.duration),
-          summary: summaryStr,
-        };
-
-        routeCache.set(cacheKey, res);
-        return res;
       }
+    } catch (err) {
+      console.warn(`OSRM routing attempt failed for profile [${activeProfile}]:`, err);
     }
-  } catch (err) {
-    console.warn('OSRM routing fallback active:', err);
   }
 
   const fallbackCoords: [number, number][] = [];
   let totalDist = 0;
 
-  for (let i = 0; i < points.length - 1; i++) {
-    const p1 = points[i];
-    const p2 = points[i + 1];
+  for (let i = 0; i < cleanPoints.length - 1; i++) {
+    const p1 = cleanPoints[i];
+    const p2 = cleanPoints[i + 1];
     const dist = calculateDistance(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
     totalDist += dist;
 
@@ -291,7 +315,7 @@ export async function fetchOSRMRoute(
     coordinates: fallbackCoords,
     distance: Math.round(totalDist),
     duration: Math.round(totalDist / 1.3),
-    summary: 'via Street Route',
+    summary: 'via Direct Path',
   };
 
   routeCache.set(cacheKey, fallbackRes);

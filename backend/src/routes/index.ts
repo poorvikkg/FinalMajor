@@ -17,6 +17,9 @@ import reportRoutes from './report.routes';
 import webhookRoutes from './webhook.routes';
 import unknownPersonRoutes from './unknownPerson.routes';
 import sightingRoutes from './sighting.routes';
+import suspectAlertRoutes from './suspectAlert.routes';
+import analyticsRoutes from './analytics.routes';
+import zoneRoutes from './zone.routes';
 
 const router = Router();
 
@@ -39,5 +42,14 @@ router.use('/unknown-persons', unknownPersonRoutes);
 
 // Sighting Map & Location Tracking
 router.use('/sightings', sightingRoutes);
+
+// Suspect Relay Chase Network
+router.use('/suspect-alerts', suspectAlertRoutes);
+
+// AI Threat Intelligence & Analytics
+router.use('/analytics', analyticsRoutes);
+
+// Geofence Zones
+router.use('/zones', zoneRoutes);
 
 export default router;

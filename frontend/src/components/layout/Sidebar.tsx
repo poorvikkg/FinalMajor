@@ -12,6 +12,8 @@ import {
   FilePlus,
   UserSearch,
   MapPin,
+  Radio,
+  ShieldAlert,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -22,6 +24,8 @@ export const Sidebar: React.FC = () => {
     { to: '/monitoring', label: 'Live Monitoring', icon: Tv, roles: ['admin'] },
     { to: '/analyse', label: 'Video Analysis', icon: ScanSearch, roles: ['admin'] },
     { to: '/detection-map', label: 'Detection Map', icon: MapPin, roles: ['admin', 'station'] },
+    { to: '/suspects/chase-map', label: 'Chase Map', icon: Radio, roles: ['admin'] },
+    { to: '/suspects/alerts', label: 'Relay Alerts', icon: ShieldAlert, roles: ['admin'] },
     { to: '/cameras', label: 'Camera Management', icon: Camera, roles: ['admin'] },
     { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },
     { to: '/file-case', label: 'Register Complaint', icon: FilePlus, roles: ['admin', 'station'] },

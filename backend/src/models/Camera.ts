@@ -51,6 +51,8 @@ const CameraSchema = new Schema<ICameraDocument>(
       ref: 'User',
       required: true,
     },
+    // Active suspect relay alerts this camera is currently watching for
+    activeAlerts: [{ type: Schema.Types.ObjectId, ref: 'SuspectAlert' }],
   },
   { timestamps: true }
 );
@@ -59,5 +61,8 @@ const CameraSchema = new Schema<ICameraDocument>(
 CameraSchema.index({ status: 1 });
 CameraSchema.index({ isActive: 1 });
 CameraSchema.index({ addedBy: 1 });
+CameraSchema.index({ activeAlerts: 1 });
+// 2dsphere index for geospatial $nearSphere relay queries
+CameraSchema.index({ 'location.locationGeoJson': '2dsphere' });
 
 export const Camera = mongoose.model<ICameraDocument>('Camera', CameraSchema);

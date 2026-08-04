@@ -26,7 +26,8 @@ class FaceDetector:
             raise ValueError("Detector ONNX model not loaded.")
 
         h, w = img.shape[:2]
-        max_size = 640
+        # Dynamic Multi-Scale Scaling: Use 800px for high-res inputs (>1080p) to capture small/distant faces
+        max_size = 800 if max(h, w) >= 1080 else 640
         im_ratio = float(img.shape[0]) / img.shape[1]
         if im_ratio > 1:
             new_height = max_size

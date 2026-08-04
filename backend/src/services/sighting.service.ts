@@ -11,6 +11,7 @@ import { UnknownPerson } from '../models/UnknownPerson';
 import { Camera } from '../models/Camera';
 import { Video } from '../models/Video';
 import { emitNewSighting } from '../socket/socket';
+import { checkZoneBreach } from './zone.service';
 
 export interface SightingFilterOptions {
   personId?: string;
@@ -121,6 +122,24 @@ export async function createSighting(data: {
   });
 
   await sighting.save();
+
+  // ── Zone Breach Detection ──────────────────────────────────────────────────
+  if (locationAvailable && lat !== 0 && lng !== 0) {
+    try {
+      let suspectLabel = 'Unknown';
+      if (data.personId) {
+        const complaint = await Complaint.findById(data.personId).select('missingPersonName').lean();
+        suspectLabel = complaint?.missingPersonName || 'Known Person';
+      } else if (data.unknownPersonId) {
+        const unknown = await UnknownPerson.findById(data.unknownPersonId).select('unknownId').lean();
+        suspectLabel = unknown?.unknownId || 'Unknown Person';
+      }
+      await checkZoneBreach(lat, lng, suspectLabel, data.identityType as 'KNOWN' | 'UNKNOWN');
+    } catch (err) {
+      // Non-fatal: zone breach check failure should not block sighting
+      console.error('[ZoneBreach check error]', err);
+    }
+  }
 
   // Populate references before emitting socket event
   const populated = await Sighting.findById(sighting._id)

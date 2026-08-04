@@ -107,6 +107,9 @@ export const SuspectChaseMap: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
+  const zoneLayersRefMap = useRef<Map<string, any>>(new Map());
+  const predictionMarkersRef = useRef<any[]>([]);
+
   // Fetch all active alerts
   const { data: alertsData } = useQuery({
     queryKey: ['suspect-alerts', 'ACTIVE'],
@@ -123,6 +126,31 @@ export const SuspectChaseMap: React.FC = () => {
     queryFn: async () => {
       const res = await api.get('/cameras?limit=200');
       return res.data.data as CameraPin[];
+    },
+  });
+
+  // Fetch prediction for selected alert
+  const { data: prediction } = useQuery({
+    queryKey: ['prediction', selectedAlert?.alertId],
+    queryFn: async () => {
+      if (!selectedAlert) return null;
+      try {
+        const res = await api.get(`/analytics/prediction/${selectedAlert.alertId}`);
+        return res.data.data;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!selectedAlert,
+    refetchInterval: 15000,
+  });
+
+  // Fetch geofence zones
+  const { data: zones } = useQuery({
+    queryKey: ['zones-overlay'],
+    queryFn: async () => {
+      const res = await api.get('/zones?activeOnly=true');
+      return res.data.data as any[];
     },
   });
 
@@ -219,11 +247,6 @@ export const SuspectChaseMap: React.FC = () => {
     });
   }, [cameras]);
 
-  // ─── Render alert overlay (pulsing/confirmed pins + trail) ─────────────────
-  useEffect(() => {
-    if (!mapRef.current || !leafletRef.current || !selectedAlert) return;
-    const L = leafletRef.current;
-
     // Remove old alert markers
     alertedMarkersRef.current.forEach((m) => m.remove());
     alertedMarkersRef.current.clear();
@@ -231,6 +254,8 @@ export const SuspectChaseMap: React.FC = () => {
       polylineRef.current.remove();
       polylineRef.current = null;
     }
+    predictionMarkersRef.current.forEach((m) => m.remove());
+    predictionMarkersRef.current = [];
 
     // Draw confirmed relay chain trail
     const chainCoords = selectedAlert.relayChain.map((h) => [h.latitude, h.longitude] as [number, number]);
@@ -319,6 +344,47 @@ export const SuspectChaseMap: React.FC = () => {
       });
     }
 
+    // Predictive trajectory cameras - purple pulsing
+    if (prediction && prediction.cameras) {
+      prediction.cameras.forEach((predCam: any) => {
+        const lat = predCam.location?.latitude;
+        const lng = predCam.location?.longitude;
+        if (!lat || !lng) return;
+
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="
+            width:38px;height:38px;border-radius:50%;
+            background:linear-gradient(135deg,#a855f7,#7c3aed);
+            border:3px solid #c084fc;
+            display:flex;align-items:center;justify-content:center;
+            font-size:14px;color:white;
+            box-shadow:0 0 20px rgba(168,85,247,0.8),0 0 40px rgba(168,85,247,0.4);
+            animation:pulse-purple 1.2s infinite;
+          ">🔮</div>`,
+          iconSize: [38, 38],
+          iconAnchor: [19, 19],
+        });
+
+        const m = L.marker([lat, lng], { icon })
+          .addTo(mapRef.current)
+          .bindPopup(`<b>🔮 PREDICTED NEXT: ${predCam.name}</b><br/>Suspect direction projection`);
+
+        predictionMarkersRef.current.push(m);
+      });
+
+      if (prediction.predictedLat && prediction.predictedLng && chainCoords.length > 0) {
+        const lastCoords = chainCoords[chainCoords.length - 1];
+        const predLine = L.polyline([lastCoords, [prediction.predictedLat, prediction.predictedLng]], {
+          color: '#a855f7',
+          weight: 2,
+          opacity: 0.7,
+          dashArray: '4 4',
+        }).addTo(mapRef.current);
+        predictionMarkersRef.current.push(predLine);
+      }
+    }
+
     // Pan map to latest detection
     if (selectedAlert.relayChain.length > 0) {
       const last = selectedAlert.relayChain[selectedAlert.relayChain.length - 1];
@@ -326,7 +392,44 @@ export const SuspectChaseMap: React.FC = () => {
         mapRef.current.panTo([last.latitude, last.longitude]);
       }
     }
-  }, [selectedAlert, cameras]);
+  }, [selectedAlert, cameras, prediction]);
+
+  // ─── Render zones on map ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current || !leafletRef.current || !zones) return;
+    const L = leafletRef.current;
+
+    zoneLayersRefMap.current.forEach((layer) => {
+      try {
+        layer.remove();
+      } catch {}
+    });
+    zoneLayersRefMap.current.clear();
+
+    const colors: Record<string, string> = {
+      HIGH_SECURITY: '#ef4444',
+      RESTRICTED: '#f59e0b',
+      WATCH: '#3b82f6',
+    };
+
+    zones.forEach((zone) => {
+      if (!zone.boundary?.coordinates) return;
+      const color = colors[zone.type] || '#3b82f6';
+      
+      const polygon = L.geoJSON(zone.boundary, {
+        style: {
+          color,
+          fillColor: color,
+          fillOpacity: 0.15,
+          weight: 1.5,
+        },
+      })
+        .addTo(mapRef.current)
+        .bindPopup(`<b>${zone.name}</b><br/>Type: ${zone.type}`);
+        
+      zoneLayersRefMap.current.set(zone.zoneId, polygon);
+    });
+  }, [zones]);
 
   // ─── Socket.IO listeners ──────────────────────────────────────────────────
   useEffect(() => {
@@ -403,6 +506,10 @@ export const SuspectChaseMap: React.FC = () => {
         @keyframes pulse-gold {
           0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.7), 0 0 40px rgba(245,158,11,0.3); }
           50% { box-shadow: 0 0 35px rgba(245,158,11,1), 0 0 70px rgba(245,158,11,0.5); }
+        }
+        @keyframes pulse-purple {
+          0%, 100% { box-shadow: 0 0 20px rgba(168,85,247,0.8), 0 0 40px rgba(168,85,247,0.4); transform: scale(1); }
+          50% { box-shadow: 0 0 30px rgba(168,85,247,1), 0 0 60px rgba(168,85,247,0.6); transform: scale(1.15); }
         }
         @keyframes scan-line {
           0% { transform: translateY(-100%); opacity: 0.6; }

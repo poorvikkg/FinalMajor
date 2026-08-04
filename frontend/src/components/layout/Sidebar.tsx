@@ -14,18 +14,21 @@ import {
   MapPin,
   Radio,
   ShieldAlert,
+  Zap,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuthStore();
 
   const menuItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin'] },
+    { to: '/', label: 'Command Center', icon: LayoutDashboard, roles: ['admin'] },
     { to: '/monitoring', label: 'Live Monitoring', icon: Tv, roles: ['admin'] },
     { to: '/analyse', label: 'Video Analysis', icon: ScanSearch, roles: ['admin'] },
     { to: '/detection-map', label: 'Detection Map', icon: MapPin, roles: ['admin', 'station'] },
     { to: '/suspects/chase-map', label: 'Chase Map', icon: Radio, roles: ['admin'] },
     { to: '/suspects/alerts', label: 'Relay Alerts', icon: ShieldAlert, roles: ['admin'] },
+    { to: '/analytics/threats', label: 'Threat Board', icon: Zap, roles: ['admin'] },
+    { to: '/zones', label: 'Geofence Zones', icon: MapPin, roles: ['admin'] },
     { to: '/cameras', label: 'Camera Management', icon: Camera, roles: ['admin'] },
     { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },
     { to: '/file-case', label: 'Register Complaint', icon: FilePlus, roles: ['admin', 'station'] },

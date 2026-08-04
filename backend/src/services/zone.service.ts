@@ -125,5 +125,5 @@ export async function checkZoneBreach(
     }
   }
 
-  return breachedZones as IZone[];
+  return breachedZones as any as IZone[];
 }

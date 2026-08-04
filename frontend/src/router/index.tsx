@@ -6,7 +6,7 @@ import { PageWrapper } from '../components/layout/PageWrapper';
 // Pages
 import { Login } from '../pages/auth/Login';
 import { Register } from '../pages/auth/Register';
-import { Dashboard } from '../pages/dashboard/Dashboard';
+import { CommandCenter } from '../pages/dashboard/CommandCenter';
 import { LiveMonitoring } from '../pages/monitoring/LiveMonitoring';
 import { CameraManagement } from '../pages/cameras/CameraManagement';
 import { RecognitionLogs } from '../pages/logs/RecognitionLogs';
@@ -20,6 +20,9 @@ import { RecurringUnknowns } from '../pages/unknowns/RecurringUnknowns';
 import { DetectionMapPage } from '../pages/map/DetectionMapPage';
 import { SuspectChaseMap } from '../pages/suspects/SuspectChaseMap';
 import { SuspectAlertList } from '../pages/suspects/SuspectAlertList';
+import { ThreatLeaderboard } from '../pages/analytics/ThreatLeaderboard';
+import { GeofenceManager } from '../pages/zones/GeofenceManager';
+import { SuspectTimeline } from '../pages/suspects/SuspectTimeline';
 
 interface ProtectedProps {
   children: React.ReactElement;
@@ -55,12 +58,12 @@ export const AppRouter: React.FC = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Root: admin → Dashboard, station/viewer → complaints */}
+        {/* Root: admin → CommandCenter, station/viewer → complaints */}
         <Route
           path="/"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <Dashboard />
+              <CommandCenter />
             </ProtectedRoute>
           }
         />
@@ -127,6 +130,30 @@ export const AppRouter: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <SuspectAlertList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suspects/timeline/:suspectId"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <SuspectTimeline />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics/threats"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <ThreatLeaderboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/zones"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <GeofenceManager />
             </ProtectedRoute>
           }
         />

@@ -15,6 +15,7 @@ import {
   Radio,
   ShieldAlert,
   Zap,
+  Network,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -28,6 +29,7 @@ export const Sidebar: React.FC = () => {
     { to: '/suspects/chase-map', label: 'Chase Map', icon: Radio, roles: ['admin'] },
     { to: '/suspects/alerts', label: 'Relay Alerts', icon: ShieldAlert, roles: ['admin'] },
     { to: '/analytics/threats', label: 'Threat Board', icon: Zap, roles: ['admin'] },
+    { to: '/analytics/accomplices', label: 'Accomplice Engine', icon: Network, roles: ['admin'] },
     { to: '/zones', label: 'Geofence Zones', icon: MapPin, roles: ['admin'] },
     { to: '/cameras', label: 'Camera Management', icon: Camera, roles: ['admin'] },
     { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },

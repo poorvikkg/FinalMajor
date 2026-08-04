@@ -5,6 +5,7 @@
 
 import { Router } from 'express';
 import * as analyticsController from '../controllers/analytics.controller';
+import * as accompliceController from '../controllers/accomplice.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireRole } from '../middlewares/role.middleware';
 
@@ -16,5 +17,6 @@ router.get('/threat-leaderboard', analyticsController.getThreatLeaderboard);
 router.get('/hourly-detections', analyticsController.getHourlyDetections);
 router.get('/heatmap', analyticsController.getHeatmap);
 router.get('/prediction/:alertId', requireRole('admin'), analyticsController.getPrediction);
+router.get('/accomplice-detection', accompliceController.getLinkAnalysis);
 
 export default router;

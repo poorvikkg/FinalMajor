@@ -192,7 +192,7 @@ export const SuspectChaseMap: React.FC = () => {
       });
 
       L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
         {
           attribution: '&copy; OpenStreetMap &copy; CartoDB',
           maxZoom: 19,
@@ -246,6 +246,10 @@ export const SuspectChaseMap: React.FC = () => {
       markersRef.current.set(cam._id, marker);
     });
   }, [cameras]);
+
+  useEffect(() => {
+    if (!mapRef.current || !leafletRef.current || !selectedAlert) return;
+    const L = leafletRef.current;
 
     // Remove old alert markers
     alertedMarkersRef.current.forEach((m) => m.remove());
@@ -496,7 +500,7 @@ export const SuspectChaseMap: React.FC = () => {
   })();
 
   return (
-    <div className="flex h-[calc(100vh-72px)] overflow-hidden bg-slate-950">
+    <div className="flex h-[calc(100vh-72px)] overflow-hidden bg-white">
       {/* ── CSS animations injected globally ──────────────────────────────── */}
       <style>{`
         @keyframes pulse-red {
@@ -516,47 +520,47 @@ export const SuspectChaseMap: React.FC = () => {
           100% { transform: translateY(100%); opacity: 0; }
         }
         .alert-active { animation: pulse-red 1.5s ease-in-out infinite; }
-        .leaflet-container { background: #0f172a !important; }
+        .leaflet-container { background: #f8fafc !important; }
       `}</style>
 
       {/* ─── LEFT SIDEBAR ──────────────────────────────────────────────────── */}
-      <div className="w-80 flex flex-col bg-slate-900 border-r border-slate-800 overflow-hidden flex-shrink-0">
+      <div className="w-80 flex flex-col bg-white border-r border-slate-200 overflow-hidden flex-shrink-0">
 
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-800 flex items-center gap-3">
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center gap-3">
           <div className="relative">
-            <div className="w-9 h-9 rounded-xl bg-red-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center">
               <Radio className="w-5 h-5 text-white" />
             </div>
             {(alertsData?.length ?? 0) > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center animate-bounce">
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-slate-900 text-white text-[9px] font-bold flex items-center justify-center animate-bounce">
                 {alertsData?.length}
               </span>
             )}
           </div>
           <div>
-            <h2 className="text-sm font-bold text-white tracking-tight">Relay Chase Network</h2>
-            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+            <h2 className="text-sm font-bold text-slate-900 tracking-tight">Relay Chase Network</h2>
+            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
               Live Suspect Tracking
             </p>
           </div>
         </div>
 
         {/* Active Alerts List */}
-        <div className="px-4 py-3 border-b border-slate-800">
-          <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 tracking-wider">Active Alerts</p>
+        <div className="px-4 py-3 border-b border-slate-200">
+          <p className="text-[10px] uppercase font-extrabold text-slate-400 mb-2 tracking-wider">Active Alerts</p>
           <div className="space-y-1.5 max-h-32 overflow-y-auto">
             {(alertsData?.length ?? 0) === 0 ? (
-              <div className="text-center py-3 text-slate-500 text-xs">No active alerts</div>
+              <div className="text-center py-3 text-slate-400 text-xs">No active alerts</div>
             ) : (
               alertsData?.map((a) => (
                 <button
                   key={a.alertId}
                   onClick={() => setSelectedAlert(a)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all border ${
                     selectedAlert?.alertId === a.alertId
-                      ? 'bg-red-600 text-white'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                      ? 'bg-slate-900 border-slate-950 text-white shadow-sm'
+                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -576,26 +580,26 @@ export const SuspectChaseMap: React.FC = () => {
             {/* Status Badge */}
             <div className="flex items-center justify-between">
               <span
-                className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border ${
                   selectedAlert.status === 'ACTIVE'
-                    ? 'bg-red-900/50 text-red-400 border border-red-800'
+                    ? 'bg-rose-50 text-rose-700 border-rose-200'
                     : selectedAlert.status === 'RESOLVED'
-                    ? 'bg-emerald-900/50 text-emerald-400 border border-emerald-800'
-                    : 'bg-slate-800 text-slate-400 border border-slate-700'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-slate-50 text-slate-500 border-slate-200'
                 }`}
               >
                 {selectedAlert.status === 'ACTIVE' && (
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 mr-1.5 animate-pulse" />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-600 mr-1.5 animate-pulse" />
                 )}
                 {selectedAlert.status}
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">{selectedAlert.alertId}</span>
+              <span className="text-[10px] text-slate-400 font-mono">{selectedAlert.alertId}</span>
             </div>
 
             {/* Suspect Info */}
-            <div className="bg-slate-800 rounded-xl p-3 border border-slate-700">
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-200">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-600 flex-shrink-0">
+                <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 flex-shrink-0">
                   {selectedAlert.snapshotObjectKey ? (
                     <img
                       src={`${import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000'}/snapshot/${selectedAlert.snapshotObjectKey}`}
@@ -604,15 +608,15 @@ export const SuspectChaseMap: React.FC = () => {
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   ) : (
-                    <ShieldAlert className="w-5 h-5 text-slate-500" />
+                    <ShieldAlert className="w-5 h-5 text-slate-400" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{selectedAlert.suspectLabel}</p>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    {selectedAlert.suspectType === 'KNOWN' ? '🔴 Known Missing Person' : '🟡 Unknown Recurring Person'}
+                  <p className="text-sm font-bold text-slate-900 truncate">{selectedAlert.suspectLabel}</p>
+                  <p className="text-[10px] text-slate-500 font-semibold">
+                    {selectedAlert.suspectType === 'KNOWN' ? '👤 Known Missing Person' : '❓ Unknown Recurring'}
                   </p>
-                  <p className="text-[10px] text-amber-400 font-semibold mt-0.5">
+                  <p className="text-[10px] text-slate-700 font-extrabold mt-0.5">
                     {(selectedAlert.triggerSimilarity * 100).toFixed(1)}% confidence
                   </p>
                 </div>
@@ -621,33 +625,33 @@ export const SuspectChaseMap: React.FC = () => {
 
             {/* Stats Row */}
             <div className="grid grid-cols-3 gap-2">
-              <div className="bg-slate-800/50 rounded-lg p-2.5 border border-slate-700 text-center">
-                <p className="text-lg font-black text-amber-400">{selectedAlert.relayChain.length}</p>
-                <p className="text-[9px] text-slate-500 uppercase font-semibold">Hops</p>
+              <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200 text-center">
+                <p className="text-lg font-black text-slate-900">{selectedAlert.relayChain.length}</p>
+                <p className="text-[9px] text-slate-400 uppercase font-bold">Hops</p>
               </div>
-              <div className="bg-slate-800/50 rounded-lg p-2.5 border border-slate-700 text-center">
-                <p className="text-lg font-black text-red-400">{selectedAlert.alertedCameraIds?.length ?? 0}</p>
-                <p className="text-[9px] text-slate-500 uppercase font-semibold">Alerted</p>
+              <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200 text-center">
+                <p className="text-lg font-black text-slate-800">{selectedAlert.alertedCameraIds?.length ?? 0}</p>
+                <p className="text-[9px] text-slate-400 uppercase font-bold">Alerted</p>
               </div>
-              <div className="bg-slate-800/50 rounded-lg p-2.5 border border-slate-700 text-center">
-                <p className="text-xs font-black text-slate-300">{distanceCovered}</p>
-                <p className="text-[9px] text-slate-500 uppercase font-semibold">Distance</p>
+              <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200 text-center">
+                <p className="text-xs font-black text-slate-800">{distanceCovered}</p>
+                <p className="text-[9px] text-slate-400 uppercase font-bold">Distance</p>
               </div>
             </div>
 
             {/* Time Info */}
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Clock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span>Started {elapsed}</span>
-              <span className="ml-auto text-[10px] text-slate-600">
+              <span className="ml-auto text-[10px] text-slate-400">
                 Expires {new Date(selectedAlert.expiresAt).toLocaleTimeString()}
               </span>
             </div>
 
             {/* Relay Chain Timeline */}
             <div>
-              <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 tracking-wider flex items-center gap-1.5">
-                <Activity className="w-3 h-3" /> Relay Chain
+              <p className="text-[10px] uppercase font-extrabold text-slate-400 mb-2 tracking-wider flex items-center gap-1.5">
+                <Activity className="w-3 h-3 text-slate-500" /> Relay Chain
               </p>
               <div className="space-y-2">
                 {selectedAlert.relayChain.map((hop, i) => (
@@ -657,20 +661,20 @@ export const SuspectChaseMap: React.FC = () => {
                       <div
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${
                           i === 0
-                            ? 'bg-red-600 text-white'
-                            : 'bg-amber-500 text-slate-900'
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-slate-200 text-slate-700 border border-slate-300'
                         }`}
                       >
                         {hop.hopIndex + 1}
                       </div>
                       {i < selectedAlert.relayChain.length - 1 && (
-                        <div className="w-px h-4 bg-slate-700 mt-1" />
+                        <div className="w-px h-4 bg-slate-200 mt-1" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0 pb-1">
-                      <p className="text-xs font-semibold text-white truncate">{hop.cameraName}</p>
+                      <p className="text-xs font-bold text-slate-900 truncate">{hop.cameraName}</p>
                       <p className="text-[10px] text-slate-500 truncate">{hop.locationName}</p>
-                      <p className="text-[10px] text-amber-400">{(hop.similarity * 100).toFixed(1)}% • {new Date(hop.detectedAt).toLocaleTimeString()}</p>
+                      <p className="text-[10px] text-slate-600 font-semibold">{(hop.similarity * 100).toFixed(1)}% • {new Date(hop.detectedAt).toLocaleTimeString()}</p>
                     </div>
                   </div>
                 ))}
@@ -680,20 +684,20 @@ export const SuspectChaseMap: React.FC = () => {
             {/* Alerted Cameras */}
             {selectedAlert.alertedCameraIds?.length > 0 && (
               <div>
-                <p className="text-[10px] uppercase font-bold text-slate-500 mb-2 tracking-wider flex items-center gap-1.5">
-                  <AlertCircle className="w-3 h-3 text-red-500" /> On Watch
+                <p className="text-[10px] uppercase font-extrabold text-slate-400 mb-2 tracking-wider flex items-center gap-1.5">
+                  <AlertCircle className="w-3 h-3 text-slate-500" /> On Watch
                 </p>
                 <div className="space-y-1">
                   {selectedAlert.alertedCameraIds.slice(0, 5).map((cam: any, i: number) => (
-                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-red-900/20 border border-red-900/30 rounded-lg">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                      <span className="text-[11px] text-red-300 truncate">
+                    <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-rose-50 border border-rose-100 rounded-lg">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse flex-shrink-0" />
+                      <span className="text-[11px] text-rose-700 font-semibold truncate">
                         {cam.name || `Camera ${i + 1}`}
                       </span>
                     </div>
                   ))}
                   {selectedAlert.alertedCameraIds.length > 5 && (
-                    <p className="text-[10px] text-slate-500 text-center">+{selectedAlert.alertedCameraIds.length - 5} more</p>
+                    <p className="text-[10px] text-slate-400 text-center">+{selectedAlert.alertedCameraIds.length - 5} more</p>
                   )}
                 </div>
               </div>
@@ -703,7 +707,7 @@ export const SuspectChaseMap: React.FC = () => {
             {user?.role === 'admin' && selectedAlert.status === 'ACTIVE' && (
               <button
                 onClick={handleResolve}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 Resolve Alert
@@ -712,11 +716,11 @@ export const SuspectChaseMap: React.FC = () => {
           </div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mb-3">
-              <Radio className="w-7 h-7 text-slate-600" />
+            <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-3">
+              <Radio className="w-7 h-7 text-slate-400" />
             </div>
-            <p className="text-sm font-semibold text-slate-400">No Active Alerts</p>
-            <p className="text-xs text-slate-600 mt-1">
+            <p className="text-sm font-bold text-slate-700">No Active Alerts</p>
+            <p className="text-xs text-slate-400 mt-1">
               When a suspect is detected on a camera, the relay chase will appear here in real-time.
             </p>
           </div>
@@ -726,31 +730,31 @@ export const SuspectChaseMap: React.FC = () => {
       {/* ─── MAP AREA ──────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col relative">
         {/* Legend Bar */}
-        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-4 bg-slate-900/90 backdrop-blur border border-slate-700 rounded-full px-5 py-2 text-[10px] font-semibold">
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-4 bg-white/95 backdrop-blur border border-slate-200 rounded-full px-5 py-2 text-[10px] font-bold text-slate-700 shadow-md">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
-            <span className="text-slate-300">Online</span>
+            <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" />
+            <span className="text-slate-600">Online</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-red-500 inline-block animate-pulse" />
-            <span className="text-slate-300">ALERTED</span>
+            <span className="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse" />
+            <span className="text-slate-800 font-extrabold">ALERTED</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
-            <span className="text-slate-300">Confirmed</span>
+            <span className="w-3 h-3 rounded-full bg-slate-900 inline-block" />
+            <span className="text-slate-800">Confirmed</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-amber-400 inline-block" style={{ borderTop: '2px dashed #f59e0b' }} />
-            <span className="text-slate-300">Trail</span>
+            <span className="w-4 h-0.5 bg-slate-800 inline-block" style={{ borderTop: '2px dashed #0f172a' }} />
+            <span className="text-slate-600">Trail</span>
           </span>
         </div>
 
         {/* Camera Count Badge */}
-        <div className="absolute top-3 right-3 z-[1000] bg-slate-900/90 backdrop-blur border border-slate-700 rounded-lg px-3 py-1.5 text-[10px] font-bold text-slate-300 flex items-center gap-1.5">
+        <div className="absolute top-3 right-3 z-[1000] bg-white/95 backdrop-blur border border-slate-200 rounded-lg px-3 py-1.5 text-[10px] font-bold text-slate-700 flex items-center gap-1.5 shadow-md">
           <Camera className="w-3 h-3 text-slate-500" />
           {cameras?.length ?? 0} cameras
           {(alertsData?.length ?? 0) > 0 && (
-            <span className="ml-2 text-red-400">{alertsData!.length} active alerts</span>
+            <span className="ml-2 text-rose-600">{alertsData!.length} active alerts</span>
           )}
         </div>
 
@@ -759,17 +763,17 @@ export const SuspectChaseMap: React.FC = () => {
         {/* Live Activity Feed */}
         <div className="absolute bottom-3 left-3 z-[1000] w-72 max-h-36 overflow-hidden">
           {liveActivity.length > 0 && (
-            <div className="bg-slate-900/90 backdrop-blur border border-slate-700 rounded-xl p-3 space-y-1.5">
-              <p className="text-[9px] uppercase font-bold text-slate-500 tracking-wider flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-xl p-3 space-y-1.5 shadow-md">
+              <p className="text-[9px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-900 animate-pulse" />
                 Live Feed
               </p>
               {liveActivity.slice(0, 4).map((a, i) => (
                 <div key={i} className="flex items-start gap-2">
-                  <span className="text-[9px] text-slate-500 shrink-0 mt-0.5 font-mono">
+                  <span className="text-[9px] text-slate-400 shrink-0 mt-0.5 font-mono">
                     {a.time.toLocaleTimeString()}
                   </span>
-                  <span className="text-[10px] text-slate-300 leading-tight">{a.text}</span>
+                  <span className="text-[10px] text-slate-700 leading-tight font-semibold">{a.text}</span>
                 </div>
               ))}
             </div>
@@ -778,39 +782,39 @@ export const SuspectChaseMap: React.FC = () => {
       </div>
 
       {/* ─── RIGHT: Alert List Slim Panel ─────────────────────────────────── */}
-      <div className="w-64 bg-slate-900 border-l border-slate-800 flex flex-col overflow-hidden flex-shrink-0">
-        <div className="px-4 py-3 border-b border-slate-800">
-          <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">All Alerts</p>
+      <div className="w-64 bg-white border-l border-slate-200 flex flex-col overflow-hidden flex-shrink-0">
+        <div className="px-4 py-3 border-b border-slate-200">
+          <p className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">All Alerts</p>
         </div>
         <div className="flex-1 overflow-y-auto">
           {(alertsData?.length ?? 0) === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 text-center px-4">
-              <XCircle className="w-6 h-6 text-slate-700 mb-2" />
-              <p className="text-xs text-slate-600">No alerts yet</p>
+              <XCircle className="w-6 h-6 text-slate-300 mb-2" />
+              <p className="text-xs text-slate-400">No alerts yet</p>
             </div>
           ) : (
             alertsData?.map((a) => (
               <button
                 key={a.alertId}
                 onClick={() => setSelectedAlert(a)}
-                className={`w-full text-left px-4 py-3 border-b border-slate-800/50 transition-colors ${
-                  selectedAlert?.alertId === a.alertId ? 'bg-red-950/50' : 'hover:bg-slate-800/50'
+                className={`w-full text-left px-4 py-3 border-b border-slate-100 transition-colors ${
+                  selectedAlert?.alertId === a.alertId ? 'bg-slate-50' : 'hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    a.status === 'ACTIVE' ? 'bg-red-500 animate-pulse' :
-                    a.status === 'RESOLVED' ? 'bg-emerald-500' : 'bg-slate-500'
+                    a.status === 'ACTIVE' ? 'bg-rose-500 animate-pulse' :
+                    a.status === 'RESOLVED' ? 'bg-emerald-500' : 'bg-slate-400'
                   }`} />
-                  <span className="text-xs font-bold text-white truncate">{a.suspectLabel}</span>
+                  <span className="text-xs font-bold text-slate-800 truncate">{a.suspectLabel}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-slate-500 font-mono">{a.alertId}</span>
-                  <span className="text-[9px] text-amber-500 font-semibold">{a.relayChain.length} hops</span>
+                  <span className="text-[9px] text-slate-400 font-mono">{a.alertId}</span>
+                  <span className="text-[9px] text-slate-700 font-bold">{a.relayChain.length} hops</span>
                 </div>
                 <div className="flex items-center gap-1 mt-1">
-                  <MapPin className="w-2.5 h-2.5 text-slate-600" />
-                  <span className="text-[9px] text-slate-600 truncate">
+                  <MapPin className="w-2.5 h-2.5 text-slate-400" />
+                  <span className="text-[9px] text-slate-500 truncate">
                     {typeof a.originCameraId === 'object'
                       ? a.originCameraId?.name
                       : 'Camera'}
@@ -822,14 +826,14 @@ export const SuspectChaseMap: React.FC = () => {
         </div>
 
         {/* Quick Stats */}
-        <div className="p-4 border-t border-slate-800 space-y-2">
+        <div className="p-4 border-t border-slate-200 bg-slate-50 space-y-2 flex-shrink-0">
           <div className="flex justify-between text-[10px]">
-            <span className="text-slate-500">Active</span>
-            <span className="font-bold text-red-400">{alertsData?.filter(a => a.status === 'ACTIVE').length ?? 0}</span>
+            <span className="text-slate-500 font-semibold">Active</span>
+            <span className="font-extrabold text-slate-900">{alertsData?.filter(a => a.status === 'ACTIVE').length ?? 0}</span>
           </div>
           <div className="flex justify-between text-[10px]">
-            <span className="text-slate-500">Cameras Alerted</span>
-            <span className="font-bold text-slate-300">
+            <span className="text-slate-500 font-semibold">Cameras Alerted</span>
+            <span className="font-extrabold text-slate-700">
               {alertsData?.reduce((sum, a) => sum + (a.alertedCameraIds?.length ?? 0), 0) ?? 0}
             </span>
           </div>

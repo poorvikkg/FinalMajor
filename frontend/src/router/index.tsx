@@ -21,6 +21,7 @@ import { DetectionMapPage } from '../pages/map/DetectionMapPage';
 import { SuspectChaseMap } from '../pages/suspects/SuspectChaseMap';
 import { SuspectAlertList } from '../pages/suspects/SuspectAlertList';
 import { ThreatLeaderboard } from '../pages/analytics/ThreatLeaderboard';
+import { AccompliceDetection } from '../pages/analytics/AccompliceDetection';
 import { GeofenceManager } from '../pages/zones/GeofenceManager';
 import { SuspectTimeline } from '../pages/suspects/SuspectTimeline';
 
@@ -146,6 +147,14 @@ export const AppRouter: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <ThreatLeaderboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/analytics/accomplices"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AccompliceDetection />
             </ProtectedRoute>
           }
         />

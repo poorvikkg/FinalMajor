@@ -138,7 +138,8 @@ class LiveStreamManager:
 
         async with httpx.AsyncClient(timeout=10) as http:
             while state.running:
-                cap = cv2.VideoCapture(state.rtsp_url)
+                from services.stream_grabber import ThreadedVideoStream
+                cap = ThreadedVideoStream(state.rtsp_url)
 
                 if not cap.isOpened():
                     logger.error(
@@ -149,16 +150,17 @@ class LiveStreamManager:
                     backoff = min(backoff * 2, 60)
                     continue
 
+                cap.start()
                 backoff = 2  # reset on successful open
-                logger.info(f"[{state.camera_id}] Stream opened successfully.")
+                logger.info(f"[{state.camera_id}] Stream opened successfully with ThreadedVideoStream.")
 
                 while state.running:
                     t0 = time.time()
                     ret, frame = cap.read()
 
-                    if not ret:
+                    if not ret or frame is None:
                         logger.warning(
-                            f"[{state.camera_id}] Frame read failed. "
+                            f"[{state.camera_id}] Frame read failed or empty. "
                             f"Reconnecting in {backoff}s…"
                         )
                         break  # break inner loop → reconnect

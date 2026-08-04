@@ -71,3 +71,8 @@ __pycache__/
 *.zip
 *.tar.gz
 *.rar
+
+# ─── Docker / Local Data ───────────────────────────────────────────────────────
+docker_data/
+**/docker_data/
+

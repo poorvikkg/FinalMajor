@@ -133,6 +133,15 @@ SightingSchema.index({ identityType: 1, detectedAt: -1 });
 SightingSchema.index({ sourceType: 1 });
 SightingSchema.index({ detectedAt: -1 });
 
+// ── Compound indexes for deduplication query (personId|unknownPersonId + trackId + detectedAt)
+// Eliminates full collection scan on every sighting creation cooldown check
+SightingSchema.index({ personId: 1, trackId: 1, detectedAt: -1 });
+SightingSchema.index({ unknownPersonId: 1, trackId: 1, detectedAt: -1 });
+
+// ── Compound index for link-analysis sliding-window camera join
+// Supports: { cameraId, detectedAt range, personId/unknownPersonId exclude }
+SightingSchema.index({ cameraId: 1, detectedAt: 1 });
+
 // Ensure at least one identity reference exists
 SightingSchema.pre('validate', function (next) {
   if (!this.personId && !this.unknownPersonId) {

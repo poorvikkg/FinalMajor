@@ -194,7 +194,7 @@ export const Dashboard: React.FC = () => {
                           {sighting.identityType}
                         </span>
                       </div>
-                      <p className="text-slate-500 font-medium">📍 {sighting.location?.name}</p>
+                      <p className="text-slate-500 font-medium">{sighting.location?.name}</p>
                     </div>
                     <div className="text-right space-y-0.5">
                       <p className="font-mono text-[11px] text-slate-500">

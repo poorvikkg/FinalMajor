@@ -232,9 +232,6 @@ export const AnalyseVideo: React.FC = () => {
     <div className="space-y-6 max-w-4xl">
       <div>
         <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">CCTV Video Analysis</h1>
-        <p className="text-xs text-slate-500 font-medium mt-0.5">
-          Upload recorded surveillance footage to detect and identify faces using AI analytics.
-        </p>
       </div>
 
       {/* ── VIEW 1: WORKSPACE LIST & UPLOAD ── */}

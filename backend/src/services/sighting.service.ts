@@ -123,31 +123,37 @@ export async function createSighting(data: {
 
   await sighting.save();
 
-  // ── Zone Breach Detection ──────────────────────────────────────────────────
-  if (locationAvailable && lat !== 0 && lng !== 0) {
-    try {
-      let suspectLabel = 'Unknown';
-      if (data.personId) {
-        const complaint = await Complaint.findById(data.personId).select('missingPersonName').lean();
-        suspectLabel = complaint?.missingPersonName || 'Known Person';
-      } else if (data.unknownPersonId) {
-        const unknown = await UnknownPerson.findById(data.unknownPersonId).select('unknownId').lean();
-        suspectLabel = unknown?.unknownId || 'Unknown Person';
-      }
-      await checkZoneBreach(lat, lng, suspectLabel, data.identityType as 'KNOWN' | 'UNKNOWN');
-    } catch (err) {
-      // Non-fatal: zone breach check failure should not block sighting
-      console.error('[ZoneBreach check error]', err);
-    }
-  }
+  // ── Parallel: Zone Breach Detection + Socket Populate ─────────────────────
+  // Both run concurrently — zone breach does not need to block socket emit
+  const [populated] = await Promise.all([
+    // Populate for socket emit
+    Sighting.findById(sighting._id)
+      .populate('personId', 'complaintId missingPersonName attachments')
+      .populate('unknownPersonId', 'unknownId status representativeSnapshot')
+      .populate('cameraId', 'name location status')
+      .populate('videoId', 'originalName filename location recordedAt')
+      .lean(),
 
-  // Populate references before emitting socket event
-  const populated = await Sighting.findById(sighting._id)
-    .populate('personId', 'complaintId missingPersonName attachments')
-    .populate('unknownPersonId', 'unknownId status representativeSnapshot')
-    .populate('cameraId', 'name location status')
-    .populate('videoId', 'originalName filename location recordedAt')
-    .lean();
+    // Zone breach check (non-fatal)
+    locationAvailable && lat !== 0 && lng !== 0
+      ? (async () => {
+          try {
+            // Resolve suspect label — these two reads are mutually exclusive, no parallel needed
+            let suspectLabel = 'Unknown';
+            if (data.personId) {
+              const complaint = await Complaint.findById(data.personId).select('missingPersonName').lean();
+              suspectLabel = complaint?.missingPersonName || 'Known Person';
+            } else if (data.unknownPersonId) {
+              const unknown = await UnknownPerson.findById(data.unknownPersonId).select('unknownId').lean();
+              suspectLabel = unknown?.unknownId || 'Unknown Person';
+            }
+            await checkZoneBreach(lat, lng, suspectLabel, data.identityType as 'KNOWN' | 'UNKNOWN');
+          } catch (err) {
+            console.error('[ZoneBreach check error]', err);
+          }
+        })()
+      : Promise.resolve(),
+  ]);
 
   if (populated) {
     emitNewSighting(populated);

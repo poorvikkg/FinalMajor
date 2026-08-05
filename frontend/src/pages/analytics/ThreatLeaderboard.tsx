@@ -17,6 +17,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import api from '../../api';
+import { getSnapshotUrl } from '../../utils/pathPrediction';
 
 const LEVEL_CONFIG = {
   CRITICAL: { label: 'Critical', color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.3)' },
@@ -59,9 +60,6 @@ export const ThreatLeaderboard: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-red-600/20 border border-red-800/30 flex items-center justify-center">
-            <Zap className="w-5 h-5 text-red-500" />
-          </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">AI Threat Leaderboard</h1>
             <p className="text-xs text-slate-500 font-medium">
@@ -148,7 +146,7 @@ export const ThreatLeaderboard: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden border border-slate-200">
                           {suspect.snapshotUrl ? (
-                            <img src={suspect.snapshotUrl} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            <img src={getSnapshotUrl(suspect.snapshotUrl)} alt="" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                           ) : (
                             <ShieldAlert className="w-5 h-5 text-slate-400" />
                           )}
@@ -156,7 +154,7 @@ export const ThreatLeaderboard: React.FC = () => {
                         <div>
                           <p className="text-sm font-bold text-slate-800">{suspect.suspectLabel}</p>
                           <p className="text-[10px] text-slate-400 font-medium">
-                            {suspect.suspectType === 'KNOWN' ? '👤 Known Missing Person' : '❓ Unknown Recurring'}
+                            {suspect.suspectType === 'KNOWN' ? 'Known Missing Person' : 'Unknown Recurring'}
                           </p>
                         </div>
                       </div>
@@ -167,7 +165,7 @@ export const ThreatLeaderboard: React.FC = () => {
                           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[10px] font-bold border"
                           style={{ color: cfg.color, background: cfg.bg, borderColor: cfg.border }}
                         >
-                          {suspect.level === 'CRITICAL' && '⚠ '}
+                          {suspect.level === 'CRITICAL' && 'Warning: '}
                           {cfg.label}
                         </div>
                         {suspect.activeAlertId && (

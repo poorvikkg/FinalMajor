@@ -212,7 +212,7 @@ export const CommandCenter: React.FC = () => {
           <div className="rounded-2xl p-4 border flex items-start gap-3 shadow-2xl bg-white border-slate-200">
             <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5 text-slate-700" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900">🚨 Zone Breach Detected</p>
+              <p className="text-sm font-bold text-slate-900">Zone Breach Detected</p>
               <p className="text-xs text-slate-600 mt-0.5">
                 <strong>{zoneBreach.suspectLabel}</strong> entered <strong>{zoneBreach.zoneName}</strong>
               </p>
@@ -229,13 +229,8 @@ export const CommandCenter: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight font-heading">Intelligence Command Center</h1>
-          <p className="text-xs text-slate-500 font-semibold mt-0.5">Real-time city surveillance intelligence • MPDS</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5">
-            <span className="w-2 h-2 rounded-full bg-slate-900 animate-pulse" />
-            <span className="text-[10px] font-bold text-slate-800 uppercase tracking-wider">System Active</span>
-          </div>
           <div className="text-xs text-slate-400 font-mono">{new Date().toLocaleString()}</div>
         </div>
       </div>
@@ -255,7 +250,6 @@ export const CommandCenter: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm font-bold text-slate-900">24-Hour Detection Timeline</p>
-              <p className="text-[10px] text-slate-400">Detections per hour across all cameras</p>
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-slate-700 font-bold">
               <span className="w-2 h-2 rounded-full bg-slate-800" />
@@ -274,7 +268,6 @@ export const CommandCenter: React.FC = () => {
         {/* Camera Health Donut */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col shadow-sm">
           <p className="text-sm font-bold text-slate-900 mb-1">Camera Network</p>
-          <p className="text-[10px] text-slate-500 mb-4">Live status distribution</p>
           <div className="flex-1 flex items-center justify-center relative" style={{ minHeight: '160px' }}>
             <Doughnut data={cameraDonutData} options={donutOptions as any} />
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -303,10 +296,8 @@ export const CommandCenter: React.FC = () => {
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-slate-800" />
                 AI Threat Leaderboard
               </p>
-              <p className="text-[10px] text-slate-400 mt-0.5">Ranked by dynamic threat score</p>
             </div>
             <button
               onClick={() => navigate('/analytics/threats')}
@@ -345,7 +336,7 @@ export const CommandCenter: React.FC = () => {
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-[10px] text-slate-400 font-semibold">
-                        {suspect.suspectType === 'KNOWN' ? '👤 Known' : '❓ Unknown'}
+                        {suspect.suspectType === 'KNOWN' ? 'Known' : 'Unknown'}
                       </p>
                     </div>
                   </div>

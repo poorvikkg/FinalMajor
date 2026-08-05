@@ -5,9 +5,12 @@
 
 import { Types } from 'mongoose';
 import { Zone, IZone } from '../models/Zone';
+import { Camera } from '../models/Camera';
+import * as cameraService from './camera.service';
 import { emitZoneBreach } from '../socket/socket';
 import { broadcastToRole } from './notification.service';
 import { logger } from '../config/logger';
+import { AppError } from '../middlewares/error.middleware';
 
 // ─── Auto-generate zoneId ────────────────────────────────────────────────────
 async function generateZoneId(): Promise<string> {
@@ -126,4 +129,86 @@ export async function checkZoneBreach(
   }
 
   return breachedZones as any as IZone[];
+}
+
+// ─── Trigger scan for all cameras inside a zone ──────────────────────────────
+export async function triggerZoneScan(zoneId: string, targetUserId: string) {
+  const zone = await Zone.findOne({ zoneId });
+  if (!zone) {
+    throw new AppError('Zone not found', 404);
+  }
+
+  // Find all active cameras situated within the zone's polygon boundary
+  const cameras = await Camera.find({
+    isActive: true,
+    'location.locationGeoJson': {
+      $geoWithin: {
+        $geometry: zone.boundary,
+      },
+    },
+  });
+
+  // Start all cameras concurrently — no reason to wait for each one serially
+  const outcomes = await Promise.allSettled(
+    cameras.map((camera) => cameraService.startCamera(camera._id.toString(), 'target', targetUserId))
+  );
+
+  const triggeredCameras: any[] = [];
+  const errors: string[] = [];
+
+  outcomes.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      triggeredCameras.push(result.value);
+    } else {
+      const cam = cameras[i];
+      errors.push(`Camera ${cam.name || cam._id}: ${result.reason?.message || result.reason}`);
+    }
+  });
+
+  return {
+    triggeredCount: triggeredCameras.length,
+    triggeredCameras,
+    errors,
+  };
+}
+
+// ─── Stop scan for all cameras inside a zone ──────────────────────────────
+export async function stopZoneScan(zoneId: string) {
+  const zone = await Zone.findOne({ zoneId });
+  if (!zone) {
+    throw new AppError('Zone not found', 404);
+  }
+
+  // Find all active cameras situated within the zone's polygon boundary
+  const cameras = await Camera.find({
+    isActive: true,
+    'location.locationGeoJson': {
+      $geoWithin: {
+        $geometry: zone.boundary,
+      },
+    },
+  });
+
+  // Stop all cameras concurrently
+  const outcomes = await Promise.allSettled(
+    cameras.map((camera) => cameraService.stopCamera(camera._id.toString()))
+  );
+
+  const stoppedCameras: any[] = [];
+  const errors: string[] = [];
+
+  outcomes.forEach((result, i) => {
+    if (result.status === 'fulfilled') {
+      stoppedCameras.push(result.value);
+    } else {
+      const cam = cameras[i];
+      errors.push(`Camera ${cam.name || cam._id}: ${result.reason?.message || result.reason}`);
+    }
+  });
+
+  return {
+    stoppedCount: stoppedCameras.length,
+    stoppedCameras,
+    errors,
+  };
 }

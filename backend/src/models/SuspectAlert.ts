@@ -39,8 +39,10 @@ export interface ISuspectAlert extends Document {
   originCameraId: Types.ObjectId;     // where suspect was FIRST detected
   lastDetectedCameraId: Types.ObjectId;
 
-  alertedCameraIds: Types.ObjectId[]; // cameras currently on watch
+  alertedCameraIds: Types.ObjectId[]; // all cameras that received the alert
   confirmedCameraIds: Types.ObjectId[]; // cameras that confirmed a sighting
+  frontierCameraIds: Types.ObjectId[]; // cameras currently STREAMING (watching for suspect)
+  prunedCameraIds: Types.ObjectId[];   // cameras stopped — suspect went a different way
 
   relayChain: IRelayHop[];            // ordered trail of confirmed detections
 
@@ -95,6 +97,10 @@ const SuspectAlertSchema = new Schema<ISuspectAlert>(
 
     alertedCameraIds: [{ type: Schema.Types.ObjectId, ref: 'Camera' }],
     confirmedCameraIds: [{ type: Schema.Types.ObjectId, ref: 'Camera' }],
+    // Cameras currently actively streaming (watching for suspect in live feed)
+    frontierCameraIds: [{ type: Schema.Types.ObjectId, ref: 'Camera' }],
+    // Cameras that were stopped because suspect moved a different direction
+    prunedCameraIds: [{ type: Schema.Types.ObjectId, ref: 'Camera' }],
 
     relayChain: { type: [RelayHopSchema], default: [] },
 

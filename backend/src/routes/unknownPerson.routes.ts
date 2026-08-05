@@ -28,4 +28,10 @@ router.post(
   unknownPersonController.markReviewed
 );
 
+router.delete(
+  '/:unknownId',
+  requireRole('admin'),
+  unknownPersonController.deleteUnknownPerson
+);
+
 export default router;

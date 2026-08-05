@@ -216,18 +216,22 @@ export async function getLinkAnalysis(options: LinkAnalysisOptions): Promise<Lin
       sightings = [];
     }
   } else {
-    // Global analysis: retrieve last 5000 sightings
+    // Global analysis: retrieve last 1000 sightings sorted server-side.
+    // Limit is intentionally conservative — the inner loop is O(N²) so
+    // 1000 → ~1M ops vs the prior 5000 → ~25M ops.
+    // Use field projection so only the 7 algorithm-needed fields are transferred.
     sightings = await Sighting.find(query)
+      .select('personId unknownPersonId cameraId videoId detectedAt similarity snapshotObjectKey location')
       .populate('personId', 'missingPersonName complaintId attachments status')
       .populate('unknownPersonId', 'unknownId status representativeSnapshot')
-      .populate('cameraId', 'name location')
+      .populate('cameraId', 'name')
       .populate('videoId', 'originalName filename')
-      .limit(5000)
+      .sort({ detectedAt: 1 }) // server-side sort — avoids JS re-sort on every call
+      .limit(1000)
       .lean();
   }
 
-  // Sort sightings chronologically for sliding window
-  sightings.sort((a, b) => a.detectedAt.getTime() - b.detectedAt.getTime());
+  // Sightings are already chronologically sorted from MongoDB
 
   const linksMap = new Map<string, AccompliceLink>();
   const nodesMap = new Map<string, AccompliceNode>();

@@ -254,9 +254,9 @@ export const LiveMonitoring: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="h-[calc(100vh-72px)] flex flex-col p-6 overflow-hidden bg-slate-50 gap-4">
       {/* Header */}
-      <div className="flex flex-wrap justify-between items-center gap-3">
+      <div className="flex flex-wrap justify-between items-center gap-3 shrink-0">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Live Camera Monitoring</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -266,10 +266,10 @@ export const LiveMonitoring: React.FC = () => {
         <Button onClick={() => setIsAddOpen(true)}>Add RTSP Stream</Button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+      <div className="flex-1 grid grid-cols-1 xl:grid-cols-4 gap-4 min-h-0">
 
         {/* LEFT: Camera list sidebar */}
-        <div className="xl:col-span-1 space-y-4">
+        <div className="xl:col-span-1 space-y-4 overflow-y-auto pr-1 h-full min-h-0 pb-6">
           
           {/* Detection Mode */}
           <Card>
@@ -472,75 +472,77 @@ export const LiveMonitoring: React.FC = () => {
         </div>
 
         {/* RIGHT: Multi-camera grid */}
-        <div className="xl:col-span-3">
+        <div className="xl:col-span-3 flex flex-col h-full min-h-0 overflow-hidden">
           {/* Status bar */}
-          <div className="flex justify-between items-center px-3 py-2 bg-slate-900 text-white mb-2">
+          <div className="flex justify-between items-center px-3 py-2 bg-slate-900 text-white mb-2 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
               <span className="text-[11px] font-black uppercase tracking-wider">LIVE FEED</span>
             </div>
             <span className="font-mono text-[11px] text-slate-300">{timestamp}</span>
           </div>
 
-          {activeCams.length === 0 ? (
-            <div className="aspect-video bg-slate-100 border border-slate-200 flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-xs font-black text-slate-500 uppercase tracking-widest">No Camera Selected</p>
-                <p className="text-[11px] text-slate-400 mt-1">Select cameras from the list on the left.</p>
-              </div>
-            </div>
-          ) : (
-            <div className={`grid gap-1 ${gridClass[gridLayout]}`}>
-              {activeCams.map(cam => (
-                <CameraTile
-                  key={cam._id}
-                  cam={cam}
-                  isSelected={selectedCams.has(cam._id)}
-                  onSelect={() => toggleCam(cam._id)}
-                  timestamp={timestamp}
-                />
-              ))}
-              {/* Empty filler tiles if fewer cams selected than grid size */}
-              {Array.from({ length: Math.max(0, gridLayout - activeCams.length) }).map((_, i) => (
-                <div
-                  key={`empty-${i}`}
-                  className="aspect-video bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center"
-                >
-                  <p className="text-[10px] text-slate-300 font-black uppercase tracking-wider">Empty Slot</p>
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {activeCams.length === 0 ? (
+              <div className="h-full bg-slate-100 border border-slate-200 flex items-center justify-center rounded-xl">
+                <div className="text-center">
+                  <p className="text-xs font-black text-slate-500 uppercase tracking-widest">No Camera Selected</p>
+                  <p className="text-[11px] text-slate-400 mt-1">Select cameras from the list on the left.</p>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Search results highlight — cameras with detections */}
-          {searchResults.length > 0 && (
-            <div className="mt-3 border border-slate-300 bg-slate-50 px-4 py-3">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">
-                Cameras where "{searchSubmitted}" was detected:
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {[...new Map(
-                  searchResults
-                    .filter(r => r.cameraId)
-                    .map(r => [r.cameraId!._id, r.cameraId!])
-                ).values()].map(cam => (
-                  <button
+              </div>
+            ) : (
+              <div className={`grid gap-1.5 ${gridClass[gridLayout]}`}>
+                {activeCams.map(cam => (
+                  <CameraTile
                     key={cam._id}
-                    onClick={() => {
-                      const found = cameras.find(c => c._id === cam._id);
-                      if (found) {
-                        setSelectedCams(new Set([found._id]));
-                        setGridLayout(1);
-                      }
-                    }}
-                    className="text-[11px] font-bold uppercase tracking-wider border border-slate-900 px-3 py-1.5 bg-white hover:bg-slate-900 hover:text-white transition-colors"
+                    cam={cam}
+                    isSelected={selectedCams.has(cam._id)}
+                    onSelect={() => toggleCam(cam._id)}
+                    timestamp={timestamp}
+                  />
+                ))}
+                {/* Empty filler tiles if fewer cams selected than grid size */}
+                {Array.from({ length: Math.max(0, gridLayout - activeCams.length) }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="aspect-video bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center rounded-xl"
                   >
-                    {cam.name} — {cam.location}
-                  </button>
+                    <p className="text-[10px] text-slate-300 font-black uppercase tracking-wider">Empty Slot</p>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Search results highlight — cameras with detections */}
+            {searchResults.length > 0 && (
+              <div className="mt-3 border border-slate-300 bg-slate-50 px-4 py-3 rounded-xl shrink-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mb-2">
+                  Cameras where "{searchSubmitted}" was detected:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[...new Map(
+                    searchResults
+                      .filter(r => r.cameraId)
+                      .map(r => [r.cameraId!._id, r.cameraId!])
+                  ).values()].map(cam => (
+                    <button
+                      key={cam._id}
+                      onClick={() => {
+                        const found = cameras.find(c => c._id === cam._id);
+                        if (found) {
+                          setSelectedCams(new Set([found._id]));
+                          setGridLayout(1);
+                        }
+                      }}
+                      className="text-[11px] font-bold uppercase tracking-wider border border-slate-950 px-3 py-1.5 bg-white hover:bg-slate-900 hover:text-white transition-colors rounded-xl"
+                    >
+                      {cam.name} — {cam.location}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

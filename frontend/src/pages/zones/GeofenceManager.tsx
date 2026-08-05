@@ -9,12 +9,15 @@
  *  - Real-time breach counter updates via Socket.IO
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Shield, Trash2, ToggleLeft, ToggleRight, Plus, AlertTriangle } from 'lucide-react';
+import { MapPin, Shield, Trash2, ToggleLeft, ToggleRight, Plus, AlertTriangle, Radar, Square, Hexagon } from 'lucide-react';
 import api from '../../api';
 import socket from '../../socket';
 import { useAuthStore } from '../../store/auth';
+import { Modal } from '../../components/ui/Modal';
+import 'leaflet/dist/leaflet.css';
+import 'leaflet-draw/dist/leaflet.draw.css';
 
 const ZONE_COLORS: Record<string, string> = {
   HIGH_SECURITY: '#ef4444',
@@ -33,13 +36,87 @@ export const GeofenceManager: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<any>(null);
   const zoneLayersRef = useRef<Map<string, any>>(new Map());
+  const labelsRef = useRef<any[]>([]);
   const drawControlRef = useRef<any>(null);
   const currentDrawRef = useRef<any>(null);
 
+  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [LInstance, setLInstance] = useState<any>(null);
+
   const [drawingMode, setDrawingMode] = useState(false);
+  const [activeDrawShape, setActiveDrawShape] = useState<'polygon' | 'rectangle' | null>(null);
+  const activeDrawHandlerRef = useRef<any>(null);
   const [pendingZone, setPendingZone] = useState<{ coords: number[][][]; center: { lat: number; lng: number } } | null>(null);
   const [formData, setFormData] = useState({ name: '', type: 'WATCH', description: '' });
   const [recentBreach, setRecentBreach] = useState<any>(null);
+
+  // Scan Zone states
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [scanningZone, setScanningZone] = useState<any>(null);
+  const [selectedSuspectId, setSelectedSuspectId] = useState('');
+  const [scanResult, setScanResult] = useState<any>(null);
+  const [isScanning, setIsScanning] = useState(false);
+
+  // Fetch complaints list for suspect list dropdown
+  const { data: complaints = [] } = useQuery({
+    queryKey: ['complaints-list-scan'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/complaints?limit=300');
+        return res.data.data || [];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  // Fetch unknown list for suspect list dropdown
+  const { data: unknowns = [] } = useQuery({
+    queryKey: ['unknowns-list-scan'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/unknown-persons?limit=300');
+        return res.data.data || [];
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const suspectList = useMemo(() => {
+    const list: any[] = [];
+    complaints.forEach((c: any) => {
+      list.push({
+        id: c._id,
+        label: c.missingPersonName || c.complaintId || 'Known Missing Person',
+        type: 'KNOWN',
+      });
+    });
+    unknowns.forEach((u: any) => {
+      list.push({
+        id: u._id,
+        label: u.unknownId || 'Unknown Recurring Person',
+        type: 'UNKNOWN',
+      });
+    });
+    return list;
+  }, [complaints, unknowns]);
+
+  const handleStartScan = async () => {
+    if (!scanningZone || !selectedSuspectId) return;
+    setIsScanning(true);
+    setScanResult(null);
+    try {
+      const res = await api.post(`/zones/${scanningZone.zoneId}/trigger-scan`, {
+        targetUserId: selectedSuspectId,
+      });
+      setScanResult(res.data.data);
+    } catch (err: any) {
+      setScanResult({ error: err.response?.data?.message || err.message });
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
@@ -59,6 +136,8 @@ export const GeofenceManager: React.FC = () => {
       setPendingZone(null);
       setFormData({ name: '', type: 'WATCH', description: '' });
       setDrawingMode(false);
+      setActiveDrawShape(null);
+      activeDrawHandlerRef.current = null;
     },
   });
 
@@ -95,6 +174,7 @@ export const GeofenceManager: React.FC = () => {
     ]).then(([LMod]) => {
       L = LMod;
       leafletRef.current = L;
+      setLInstance(L);
       if (mapRef.current) return;
 
       const map = L.map(mapContainerRef.current!, { center: [12.9141, 74.856], zoom: 13 });
@@ -103,6 +183,7 @@ export const GeofenceManager: React.FC = () => {
       }).addTo(map);
 
       mapRef.current = map;
+      setMapInstance(map);
 
       // Polygon draw handler
       map.on('draw:created', (e: any) => {
@@ -126,18 +207,27 @@ export const GeofenceManager: React.FC = () => {
     });
 
     return () => {
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        setMapInstance(null);
+        setLInstance(null);
+      }
     };
   }, []);
 
   // Render zones on map
   useEffect(() => {
-    if (!mapRef.current || !leafletRef.current || !zones) return;
-    const L = leafletRef.current;
+    if (!mapInstance || !LInstance || !zones) return;
+    const L = LInstance;
 
     // Remove old zone layers
     zoneLayersRef.current.forEach((layer) => { try { layer.remove(); } catch {} });
     zoneLayersRef.current.clear();
+
+    // Remove old labels
+    labelsRef.current.forEach((marker) => { try { marker.remove(); } catch {} });
+    labelsRef.current = [];
 
     zones.forEach((zone) => {
       if (!zone.boundary?.coordinates) return;
@@ -153,13 +243,13 @@ export const GeofenceManager: React.FC = () => {
           dashArray: zone.isActive ? '' : '6 4',
         },
       })
-        .addTo(mapRef.current)
+        .addTo(mapInstance)
         .bindPopup(`
           <div style="min-width:160px;padding:4px">
             <b style="color:${color}">${zone.name}</b><br/>
             <span style="font-size:11px">${zone.type.replace('_', ' ')}</span><br/>
             <span style="font-size:10px;color:#94a3b8">Breaches: ${zone.totalBreaches || 0}</span><br/>
-            <span style="font-size:10px;color:${zone.isActive ? '#10b981' : '#64748b'}">${zone.isActive ? '● Active' : '○ Inactive'}</span>
+            <span style="font-size:10px;color:${zone.isActive ? '#10b981' : '#64748b'}">${zone.isActive ? 'Active' : 'Inactive'}</span>
           </div>
         `);
 
@@ -170,26 +260,63 @@ export const GeofenceManager: React.FC = () => {
           html: `<div style="background:${color}22;border:1px solid ${color}55;border-radius:6px;padding:2px 6px;font-size:10px;font-weight:700;color:${color};white-space:nowrap">${zone.name}</div>`,
           iconAnchor: [50, 10],
         });
-        L.marker([zone.centerLat, zone.centerLng], { icon }).addTo(mapRef.current);
+        const labelMarker = L.marker([zone.centerLat, zone.centerLng], { icon }).addTo(mapInstance);
+        labelsRef.current.push(labelMarker);
       }
 
       zoneLayersRef.current.set(zone.zoneId, polygon);
     });
-  }, [zones]);
+  }, [zones, mapInstance, LInstance]);
 
   // Activate draw mode
-  const startDrawing = () => {
-    if (!mapRef.current || !leafletRef.current) return;
-    const L = leafletRef.current;
+  const startDrawing = (shapeType: 'polygon' | 'rectangle') => {
+    if (!mapInstance || !LInstance) return;
+    const L = LInstance;
     setDrawingMode(true);
+    setActiveDrawShape(shapeType);
     setPendingZone(null);
 
-    // Use built-in Leaflet draw if available, otherwise guide with instructions
-    if ((L as any).Draw) {
-      const polygon = new (L as any).Draw.Polygon(mapRef.current, {
-        shapeOptions: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 },
-      });
-      polygon.enable();
+    if (activeDrawHandlerRef.current) {
+      try { activeDrawHandlerRef.current.disable(); } catch {}
+      activeDrawHandlerRef.current = null;
+    }
+
+    if (currentDrawRef.current) {
+      try { currentDrawRef.current.remove(); } catch {}
+      currentDrawRef.current = null;
+    }
+
+    // Use built-in Leaflet draw if available
+    if (shapeType === 'polygon') {
+      if ((L as any).Draw?.Polygon) {
+        const polygon = new (L as any).Draw.Polygon(mapInstance, {
+          shapeOptions: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 },
+        });
+        polygon.enable();
+        activeDrawHandlerRef.current = polygon;
+      }
+    } else {
+      if ((L as any).Draw?.Rectangle) {
+        const rectangle = new (L as any).Draw.Rectangle(mapInstance, {
+          shapeOptions: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 },
+        });
+        rectangle.enable();
+        activeDrawHandlerRef.current = rectangle;
+      }
+    }
+  };
+
+  const cancelDrawing = () => {
+    setPendingZone(null);
+    setDrawingMode(false);
+    setActiveDrawShape(null);
+    if (activeDrawHandlerRef.current) {
+      try { activeDrawHandlerRef.current.disable(); } catch {}
+      activeDrawHandlerRef.current = null;
+    }
+    if (currentDrawRef.current) {
+      try { currentDrawRef.current.remove(); } catch {}
+      currentDrawRef.current = null;
     }
   };
 
@@ -220,13 +347,30 @@ export const GeofenceManager: React.FC = () => {
             </div>
           </div>
           {user?.role === 'admin' && (
-            <button
-              onClick={startDrawing}
-              className="p-2 rounded-xl bg-slate-900 text-white hover:bg-slate-700 transition-colors"
-              title="Draw new zone"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+            <div className="flex gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => startDrawing('polygon')}
+                className={`p-2 rounded-xl border transition-all ${
+                  drawingMode && activeDrawShape === 'polygon'
+                    ? 'bg-amber-100 border-amber-300 text-amber-800'
+                    : 'bg-slate-900 border-slate-900 text-white hover:bg-slate-800'
+                }`}
+                title="Draw Custom Polygon (Freeform)"
+              >
+                <Hexagon className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => startDrawing('rectangle')}
+                className={`p-2 rounded-xl border transition-all ${
+                  drawingMode && activeDrawShape === 'rectangle'
+                    ? 'bg-amber-100 border-amber-300 text-amber-800'
+                    : 'bg-slate-900 border-slate-900 text-white hover:bg-slate-800'
+                }`}
+                title="Draw Quick Rectangle"
+              >
+                <Square className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </div>
 
@@ -279,8 +423,8 @@ export const GeofenceManager: React.FC = () => {
                 {createMutation.isPending ? 'Saving...' : 'Save Zone'}
               </button>
               <button
-                onClick={() => { setPendingZone(null); setDrawingMode(false); if (currentDrawRef.current) try { currentDrawRef.current.remove(); } catch {} }}
-                className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-600 hover:bg-slate-50"
+                onClick={cancelDrawing}
+                className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs text-slate-600 hover:bg-slate-50 transition"
               >
                 Cancel
               </button>
@@ -303,7 +447,11 @@ export const GeofenceManager: React.FC = () => {
           {drawingMode && !pendingZone && (
             <div className="mx-3 mt-3 rounded-xl bg-blue-50 border border-blue-200 p-3 text-xs text-blue-800">
               <p className="font-bold mb-1">Drawing Mode Active</p>
-              <p>Click on the map to place polygon vertices. Double-click to close the shape.</p>
+              <p>
+                {activeDrawShape === 'polygon'
+                  ? 'Click on the map to place polygon vertices. Double-click to close the shape.'
+                  : 'Click and drag on the map to draw a rectangular zone.'}
+              </p>
             </div>
           )}
 
@@ -319,6 +467,18 @@ export const GeofenceManager: React.FC = () => {
                       <div className="flex items-center gap-1 flex-shrink-0">
                         {user?.role === 'admin' && (
                           <>
+                            <button
+                              onClick={() => {
+                                setScanningZone(zone);
+                                setSelectedSuspectId('');
+                                setScanResult(null);
+                                setScanModalOpen(true);
+                              }}
+                              className="p-1 rounded hover:bg-blue-50 text-blue-600 transition-colors"
+                              title="Scan Zone for Suspect"
+                            >
+                              <Radar className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               onClick={() => toggleMutation.mutate(zone.zoneId)}
                               className="p-1 rounded hover:bg-slate-200 transition-colors"
@@ -346,7 +506,7 @@ export const GeofenceManager: React.FC = () => {
                     <p className="text-[9px] text-slate-400 mt-0.5">{ZONE_DESCRIPTIONS[zone.type]}</p>
                     <div className="flex items-center justify-between mt-1.5">
                       <span className={`text-[9px] font-bold uppercase ${zone.isActive ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        {zone.isActive ? '● Active' : '○ Inactive'}
+                        {zone.isActive ? 'Active' : 'Inactive'}
                       </span>
                       <span className="text-[9px] text-slate-400">
                         {zone.totalBreaches || 0} breach{(zone.totalBreaches || 0) !== 1 ? 'es' : ''}
@@ -377,10 +537,99 @@ export const GeofenceManager: React.FC = () => {
         {/* Map Instructions overlay */}
         {drawingMode && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/95 backdrop-blur text-white text-xs font-semibold px-4 py-2 rounded-full border border-slate-700">
-            🎯 Click to place polygon vertices • Double-click to finish
+            {activeDrawShape === 'polygon'
+              ? 'Click to place polygon vertices • Double-click to finish'
+              : 'Click and drag to draw a rectangle'}
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={scanModalOpen}
+        onClose={() => {
+          setScanModalOpen(false);
+          setScanningZone(null);
+          setSelectedSuspectId('');
+          setScanResult(null);
+        }}
+        title={`Scan Zone: ${scanningZone?.name || ''}`}
+        footer={
+          <div className="flex gap-2 w-full justify-end">
+            <button
+              onClick={() => {
+                setScanModalOpen(false);
+                setScanningZone(null);
+                setSelectedSuspectId('');
+                setScanResult(null);
+              }}
+              className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Close
+            </button>
+            {!scanResult && (
+              <button
+                onClick={handleStartScan}
+                disabled={!selectedSuspectId || isScanning}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold disabled:opacity-50"
+              >
+                {isScanning ? 'Starting Scan...' : 'Start Scan'}
+              </button>
+            )}
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">
+            This will automatically locate all active CCTV cameras inside this geofenced region and start scanning them for the selected target suspect.
+          </p>
+
+          {!scanResult ? (
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                Select Suspect Target
+              </label>
+              <select
+                value={selectedSuspectId}
+                onChange={(e) => setSelectedSuspectId(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none hover:border-slate-300"
+              >
+                <option value="">-- Choose Target Suspect --</option>
+                {suspectList.map((suspect) => (
+                  <option key={suspect.id} value={suspect.id}>
+                    {suspect.label} ({suspect.type === 'KNOWN' ? 'Known' : 'Unknown'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {scanResult.error ? (
+                <div className="p-3 bg-red-50 border border-red-150 rounded-xl text-red-700 text-xs font-semibold">
+                  Scan Failed: {scanResult.error}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="p-3 bg-emerald-50 border border-emerald-150 rounded-xl text-emerald-800 text-xs font-bold">
+                    Successfully triggered target scan on {scanResult.triggeredCount} CCTV camera(s) inside the geofence boundary!
+                  </div>
+                  {scanResult.errors && scanResult.errors.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Errors / Skip Logs</p>
+                      <div className="max-h-24 overflow-y-auto text-[10px] text-slate-500 space-y-1">
+                        {scanResult.errors.map((err: string, i: number) => (
+                          <div key={i} className="px-2 py-1 bg-slate-50 rounded">
+                            {err}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

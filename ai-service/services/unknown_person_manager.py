@@ -164,6 +164,9 @@ class UnknownPersonManager:
         self._lock = threading.Lock()
         self._db = None                                        # motor collection reference
         self._initialized = False
+        # ── Deferred FAISS rebuild bookkeeping
+        self._dirty_ids: set = set()   # unknown_ids whose centroids shifted significantly
+        self._rebuild_task = None      # asyncio background task handle
 
     # ── Startup ──────────────────────────────────────────────────────────────
 
@@ -261,6 +264,9 @@ class UnknownPersonManager:
             f"UNKNOWN_INDEX_LOADED: Loaded {loaded} unknown identities, "
             f"skipped {skipped}, FAISS index size={self.faiss_index.size}"
         )
+
+        # Start background deferred-rebuild loop
+        self._rebuild_task = asyncio.ensure_future(self._deferred_rebuild_loop())
 
     # ── Core Processing ──────────────────────────────────────────────────────
 
@@ -492,11 +498,17 @@ class UnknownPersonManager:
         centroid_norm = np.linalg.norm(new_centroid)
         if centroid_norm > 1e-6:
             new_centroid = new_centroid / centroid_norm
+
+        # Only mark dirty (trigger future FAISS rebuild) if the centroid shifted meaningfully.
+        # Cosine distance > 0.02 means > ~1.1° angular shift — below this the
+        # nearest-neighbour search result is unchanged, so rebuilding is wasteful.
+        cosine_shift = float(1.0 - np.dot(identity.representative_embedding, new_centroid))
+        if cosine_shift > 0.02:
+            with self._lock:
+                self._dirty_ids.add(unknown_id)
+
         identity.representative_embedding = new_centroid
         identity.embedding_count = count + 1
-
-        # Rebuild FAISS to update the representative vector
-        self._rebuild_faiss_index()
 
         # ── Compute new status ───────────────────────────────────────────
         new_status = self._compute_status(
@@ -587,6 +599,31 @@ class UnknownPersonManager:
         if distinct_videos >= settings.UNKNOWN_RECURRING_VIDEO_THRESHOLD:
             return "RECURRING"
         return "UNKNOWN"
+
+    async def _deferred_rebuild_loop(self) -> None:
+        """
+        Background coroutine: rebuilds the Unknown FAISS index at most once every
+        30 seconds, but only when identities are marked dirty (centroid shifted).
+
+        This replaces the previous per-update O(N) full rebuild with an amortised
+        O(N / (detections_per_30s)) cost — at 10 detections/sec that is a 300x reduction.
+        """
+        REBUILD_INTERVAL_SECONDS = 30
+        while True:
+            await asyncio.sleep(REBUILD_INTERVAL_SECONDS)
+            with self._lock:
+                if not self._dirty_ids:
+                    continue
+                dirty_snapshot = self._dirty_ids.copy()
+                self._dirty_ids.clear()
+
+            logger.debug(
+                f"FAISS_DEFERRED_REBUILD: {len(dirty_snapshot)} dirty identities — rebuilding index."
+            )
+            try:
+                self._rebuild_faiss_index()
+            except Exception as e:
+                logger.error(f"FAISS_DEFERRED_REBUILD: Rebuild failed: {e}")
 
     def _rebuild_faiss_index(self) -> None:
         """

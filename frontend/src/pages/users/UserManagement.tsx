@@ -73,7 +73,6 @@ export const UserManagement: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Police Station Management</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Add new police stations and manage their system access.</p>
         </div>
         <Button onClick={() => setIsAddOpen(true)} className="flex items-center gap-2">
           <UserPlus className="h-4.5 w-4.5" /> Add Police Station

@@ -6,7 +6,7 @@ Also adds CLAHE-based contrast enhancement for low-light faces.
 """
 import cv2
 import numpy as np
-from typing import Optional
+from typing import Optional, Tuple
 
 # Standard ArcFace reference facial points (112×112 output)
 _ARCFACE_REF = np.array([

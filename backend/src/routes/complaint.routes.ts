@@ -40,6 +40,7 @@ router.delete('/:id/attachments', requireRole('admin', 'station'), complaintCont
 
 // Admin legacy update (direct field overrides)
 router.put('/:id', requireRole('admin', 'station'), validate(updateComplaintSchema), complaintController.update);
+router.get('/:id/download-report', requireRole('admin', 'station'), complaintController.downloadReport);
 router.delete('/:id', requireRole('admin', 'station'), complaintController.remove);
 
 export default router;

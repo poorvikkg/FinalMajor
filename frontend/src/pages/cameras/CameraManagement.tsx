@@ -84,7 +84,6 @@ export const CameraManagement: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">Camera Network Stations</h1>
-          <p className="text-xs text-slate-500 font-medium">Add, configure, and inspect connected CCTV streams and map locations.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex bg-slate-100 p-1 rounded-lg">

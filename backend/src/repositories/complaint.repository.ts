@@ -3,6 +3,7 @@
  * Database queries for the Complaint collection.
  */
 
+import { Types } from 'mongoose';
 import { Complaint, IComplaintDocument } from '../models/Complaint';
 import { PaginationOptions } from '../utils/pagination';
 
@@ -56,11 +57,25 @@ export async function deleteComplaint(id: string): Promise<IComplaintDocument | 
   return Complaint.findByIdAndDelete(id).lean() as any;
 }
 
-export async function countComplaintsByStatus() {
+export async function countComplaintsByStatus(createdBy?: string, policeStation?: string) {
+  const matchFilter: Record<string, any> = {};
+  if (createdBy || policeStation) {
+    const conditions: Record<string, any>[] = [];
+    if (createdBy) {
+      conditions.push({ createdBy: new Types.ObjectId(createdBy) });
+    }
+    if (policeStation) {
+      conditions.push({ policeStation: { $regex: new RegExp(`^${policeStation}$`, 'i') } });
+    }
+    matchFilter.$or = conditions;
+  }
+
   return Complaint.aggregate([
+    ...(Object.keys(matchFilter).length > 0 ? [{ $match: matchFilter }] : []),
     { $group: { _id: '$status', count: { $sum: 1 } } },
   ]);
 }
+
 
 export async function getLastComplaintNumber(): Promise<number> {
   // Used to generate sequential complaint IDs like MP-20260709-0042

@@ -52,6 +52,8 @@ interface SuspectAlert {
   lastDetectedCameraId: any;
   alertedCameraIds: any[];
   confirmedCameraIds: any[];
+  frontierCameraIds: any[];   // cameras actively streaming, watching for suspect
+  prunedCameraIds: any[];     // cameras stopped — suspect went a different direction
   relayChain: RelayHop[];
   triggerSimilarity: number;
   snapshotObjectKey?: string;
@@ -97,9 +99,12 @@ export const SuspectChaseMap: React.FC = () => {
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, any>>(new Map());
-  const polylineRef = useRef<any>(null);
+  const polylinesRef = useRef<any[]>([]);
   const alertedMarkersRef = useRef<Map<string, any>>(new Map());
   const leafletRef = useRef<any>(null);
+
+  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [LInstance, setLInstance] = useState<any>(null);
 
   const [selectedAlert, setSelectedAlert] = useState<SuspectAlert | null>(null);
   const [liveActivity, setLiveActivity] = useState<{ text: string; time: Date }[]>([]);
@@ -181,6 +186,7 @@ export const SuspectChaseMap: React.FC = () => {
 
     import('leaflet').then((L) => {
       leafletRef.current = L;
+      setLInstance(L);
 
       if (mapRef.current) return; // already initialized
 
@@ -200,20 +206,23 @@ export const SuspectChaseMap: React.FC = () => {
       ).addTo(map);
 
       mapRef.current = map;
+      setMapInstance(map);
     });
 
     return () => {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
+        setMapInstance(null);
+        setLInstance(null);
       }
     };
   }, []);
 
   // ─── Render cameras on map ────────────────────────────────────────────────
   useEffect(() => {
-    if (!mapRef.current || !leafletRef.current || !cameras) return;
-    const L = leafletRef.current;
+    if (!mapInstance || !LInstance || !cameras) return;
+    const L = LInstance;
 
     // Remove old markers
     markersRef.current.forEach((m) => m.remove());
@@ -231,33 +240,34 @@ export const SuspectChaseMap: React.FC = () => {
           background:${cam.status === 'online' ? '#10b981' : '#64748b'};
           border:2px solid rgba(255,255,255,0.2);
           display:flex;align-items:center;justify-content:center;
-          font-size:10px;color:white;font-weight:bold;
+          color:white;
           box-shadow:0 2px 8px rgba(0,0,0,0.5);
           cursor:pointer;
-        ">▤</div>`,
+        "><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg></div>`,
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       });
 
       const marker = L.marker([lat, lng], { icon })
-        .addTo(mapRef.current)
+        .addTo(mapInstance)
         .bindPopup(`<b>${cam.name}</b><br/>${cam.location.name}<br/><em>${cam.status}</em>`);
 
       markersRef.current.set(cam._id, marker);
     });
-  }, [cameras]);
+  }, [cameras, mapInstance, LInstance]);
 
   useEffect(() => {
-    if (!mapRef.current || !leafletRef.current || !selectedAlert) return;
-    const L = leafletRef.current;
+    if (!mapInstance || !LInstance || !selectedAlert) return;
+    const L = LInstance;
 
     // Remove old alert markers
     alertedMarkersRef.current.forEach((m) => m.remove());
     alertedMarkersRef.current.clear();
-    if (polylineRef.current) {
-      polylineRef.current.remove();
-      polylineRef.current = null;
-    }
+    
+    // Remove old polylines
+    polylinesRef.current.forEach((line) => line.remove());
+    polylinesRef.current = [];
+
     predictionMarkersRef.current.forEach((m) => m.remove());
     predictionMarkersRef.current = [];
 
@@ -265,18 +275,20 @@ export const SuspectChaseMap: React.FC = () => {
     const chainCoords = selectedAlert.relayChain.map((h) => [h.latitude, h.longitude] as [number, number]);
     if (chainCoords.length >= 2) {
       // Glow trail
-      L.polyline(chainCoords, {
+      const glowLine = L.polyline(chainCoords, {
         color: '#f59e0b',
         weight: 4,
         opacity: 0.9,
         dashArray: '8 6',
-      }).addTo(mapRef.current);
+      }).addTo(mapInstance);
 
-      polylineRef.current = L.polyline(chainCoords, {
+      const mainLine = L.polyline(chainCoords, {
         color: '#fbbf24',
         weight: 2,
         opacity: 0.6,
-      }).addTo(mapRef.current);
+      }).addTo(mapInstance);
+
+      polylinesRef.current = [glowLine, mainLine];
     }
 
     // Confirmed hop markers (gold)
@@ -302,21 +314,21 @@ export const SuspectChaseMap: React.FC = () => {
       });
 
       const m = L.marker([hop.latitude, hop.longitude], { icon })
-        .addTo(mapRef.current)
+        .addTo(mapInstance)
         .bindPopup(`
           <div style="min-width:180px">
             <b>Hop #${hop.hopIndex + 1} ${isOrigin ? '(Origin)' : ''}</b><br/>
-            📷 ${hop.cameraName}<br/>
-            📍 ${hop.locationName}<br/>
-            🎯 ${(hop.similarity * 100).toFixed(1)}% match<br/>
-            🕒 ${new Date(hop.detectedAt).toLocaleTimeString()}
+            Camera: ${hop.cameraName}<br/>
+            Location: ${hop.locationName}<br/>
+            Match: ${(hop.similarity * 100).toFixed(1)}% match<br/>
+            Time: ${new Date(hop.detectedAt).toLocaleTimeString()}
           </div>
         `);
 
       alertedMarkersRef.current.set(`hop-${i}`, m);
     });
 
-    // Alerted (watching) cameras — pulsing red
+    // Alerted (watching) cameras — pulsing red (legacy alertedCameraIds support)
     if (Array.isArray(selectedAlert.alertedCameraIds)) {
       selectedAlert.alertedCameraIds.forEach((cam: any) => {
         const camObj = typeof cam === 'object' ? cam : cameras?.find((c) => c._id === cam);
@@ -332,19 +344,90 @@ export const SuspectChaseMap: React.FC = () => {
             background:linear-gradient(135deg,#ef4444,#dc2626);
             border:3px solid #fca5a5;
             display:flex;align-items:center;justify-content:center;
-            font-size:14px;color:white;
+            color:white;
             box-shadow:0 0 20px rgba(239,68,68,0.8),0 0 40px rgba(239,68,68,0.4);
             animation:pulse-red 1s infinite;
-          ">👁</div>`,
+          "><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0z"/><circle cx="12" cy="12" r="3"/></svg></div>`,
           iconSize: [38, 38],
           iconAnchor: [19, 19],
         });
 
         const m = L.marker([lat, lng], { icon })
-          .addTo(mapRef.current)
-          .bindPopup(`<b>⚠ ALERTED: ${camObj.name || 'Camera'}</b><br/>Watching for suspect`);
+          .addTo(mapInstance)
+          .bindPopup(`<b>WATCHING: ${camObj.name || 'Camera'}</b><br/>Searching for suspect`);
 
         alertedMarkersRef.current.set(`alerted-${camObj._id}`, m);
+      });
+    }
+
+    // ── FRONTIER cameras — pulsing RED (actively streaming, watching) ─────────
+    const frontierList = selectedAlert.frontierCameraIds || [];
+    if (Array.isArray(frontierList)) {
+      frontierList.forEach((cam: any) => {
+        const camObj = typeof cam === 'object' ? cam : cameras?.find((c) => c._id === cam);
+        if (!camObj) return;
+        const lat = camObj.location?.latitude ?? 0;
+        const lng = camObj.location?.longitude ?? 0;
+        if (!lat || !lng) return;
+
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="
+            width:42px;height:42px;border-radius:50%;
+            background:linear-gradient(135deg,#ef4444,#b91c1c);
+            border:3px solid #fca5a5;
+            display:flex;align-items:center;justify-content:center;
+            color:white;
+            box-shadow:0 0 24px rgba(239,68,68,0.9),0 0 48px rgba(239,68,68,0.5);
+            animation:pulse-frontier 0.8s infinite;
+            position:relative;
+          ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
+            <span style="position:absolute;top:-6px;right:-6px;width:14px;height:14px;border-radius:50%;background:#ef4444;border:2px solid white;animation:pulse-frontier 0.6s infinite"></span>
+          </div>`,
+          iconSize: [42, 42],
+          iconAnchor: [21, 21],
+        });
+
+        const m = L.marker([lat, lng], { icon })
+          .addTo(mapInstance)
+          .bindPopup(`<b>🔴 FRONTIER: ${camObj.name || 'Camera'}</b><br/>LIVE STREAMING — Watching for suspect<br/><em>Stream active</em>`);
+
+        alertedMarkersRef.current.set(`frontier-${camObj._id || camObj}`, m);
+      });
+    }
+
+    // ── PRUNED cameras — grey ✕ (stopped — wrong direction) ─────────────────
+    const prunedList = selectedAlert.prunedCameraIds || [];
+    if (Array.isArray(prunedList)) {
+      prunedList.forEach((cam: any) => {
+        const camObj = typeof cam === 'object' ? cam : cameras?.find((c) => c._id === cam);
+        if (!camObj) return;
+        const lat = camObj.location?.latitude ?? 0;
+        const lng = camObj.location?.longitude ?? 0;
+        if (!lat || !lng) return;
+
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="
+            width:28px;height:28px;border-radius:50%;
+            background:#64748b;
+            border:2px solid #94a3b8;
+            display:flex;align-items:center;justify-content:center;
+            color:#cbd5e1;
+            opacity:0.6;
+          ">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
+
+        const m = L.marker([lat, lng], { icon })
+          .addTo(mapInstance)
+          .bindPopup(`<b>⚫ PRUNED: ${camObj.name || 'Camera'}</b><br/>Stream stopped — suspect moved away`);
+
+        alertedMarkersRef.current.set(`pruned-${camObj._id || camObj}`, m);
       });
     }
 
@@ -362,17 +445,17 @@ export const SuspectChaseMap: React.FC = () => {
             background:linear-gradient(135deg,#a855f7,#7c3aed);
             border:3px solid #c084fc;
             display:flex;align-items:center;justify-content:center;
-            font-size:14px;color:white;
+            color:white;
             box-shadow:0 0 20px rgba(168,85,247,0.8),0 0 40px rgba(168,85,247,0.4);
             animation:pulse-purple 1.2s infinite;
-          ">🔮</div>`,
+          "><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>`,
           iconSize: [38, 38],
           iconAnchor: [19, 19],
         });
 
         const m = L.marker([lat, lng], { icon })
-          .addTo(mapRef.current)
-          .bindPopup(`<b>🔮 PREDICTED NEXT: ${predCam.name}</b><br/>Suspect direction projection`);
+          .addTo(mapInstance)
+          .bindPopup(`<b>PREDICTED NEXT: ${predCam.name}</b><br/>Suspect direction projection`);
 
         predictionMarkersRef.current.push(m);
       });
@@ -384,7 +467,7 @@ export const SuspectChaseMap: React.FC = () => {
           weight: 2,
           opacity: 0.7,
           dashArray: '4 4',
-        }).addTo(mapRef.current);
+        }).addTo(mapInstance);
         predictionMarkersRef.current.push(predLine);
       }
     }
@@ -393,15 +476,15 @@ export const SuspectChaseMap: React.FC = () => {
     if (selectedAlert.relayChain.length > 0) {
       const last = selectedAlert.relayChain[selectedAlert.relayChain.length - 1];
       if (last.latitude && last.longitude) {
-        mapRef.current.panTo([last.latitude, last.longitude]);
+        mapInstance.panTo([last.latitude, last.longitude]);
       }
     }
-  }, [selectedAlert, cameras, prediction]);
+  }, [selectedAlert, cameras, prediction, mapInstance, LInstance]);
 
   // ─── Render zones on map ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!mapRef.current || !leafletRef.current || !zones) return;
-    const L = leafletRef.current;
+    if (!mapInstance || !LInstance || !zones) return;
+    const L = LInstance;
 
     zoneLayersRefMap.current.forEach((layer) => {
       try {
@@ -428,33 +511,39 @@ export const SuspectChaseMap: React.FC = () => {
           weight: 1.5,
         },
       })
-        .addTo(mapRef.current)
+        .addTo(mapInstance)
         .bindPopup(`<b>${zone.name}</b><br/>Type: ${zone.type}`);
         
       zoneLayersRefMap.current.set(zone.zoneId, polygon);
     });
-  }, [zones]);
+  }, [zones, mapInstance, LInstance]);
 
   // ─── Socket.IO listeners ──────────────────────────────────────────────────
   useEffect(() => {
     const handleNewAlert = (data: any) => {
-      addActivity(`🚨 New alert: ${data.suspectLabel} detected at ${data.originCamera?.name || 'unknown camera'}`);
+      addActivity(`New alert: ${data.suspectLabel} detected at ${data.originCamera?.name || 'unknown camera'}`);
       queryClient.invalidateQueries({ queryKey: ['suspect-alerts'] });
       if (!selectedAlert) setSelectedAlert(data as any);
     };
 
     const handleUpdated = (data: any) => {
-      addActivity(`📡 Relay hop — suspect seen at ${data.lastDetectedCamera?.name || 'unknown camera'}`);
+      addActivity(`Relay hop — suspect seen at ${data.lastDetectedCamera?.name || 'unknown camera'}`);
       queryClient.invalidateQueries({ queryKey: ['suspect-alerts'] });
       if (selectedAlert && selectedAlert.alertId === data.alertId) {
         setSelectedAlert((prev) =>
-          prev ? { ...prev, relayChain: data.relayChain, alertedCameraIds: data.alertedCameras } : prev
+          prev ? {
+            ...prev,
+            relayChain: data.relayChain,
+            alertedCameraIds: data.alertedCameras,
+            frontierCameraIds: data.frontierCameras || [],
+            prunedCameraIds: data.prunedCameras || [],
+          } : prev
         );
       }
     };
 
     const handleResolved = (data: any) => {
-      addActivity(`✅ Alert ${data.alertId} resolved: ${data.reason}`);
+      addActivity(`Alert ${data.alertId} resolved: ${data.reason}`);
       queryClient.invalidateQueries({ queryKey: ['suspect-alerts'] });
       if (selectedAlert?.alertId === data.alertId) {
         setSelectedAlert((prev) => (prev ? { ...prev, status: 'RESOLVED' } : prev));
@@ -479,7 +568,7 @@ export const SuspectChaseMap: React.FC = () => {
       await api.post(`/suspect-alerts/${selectedAlert.alertId}/resolve`, {
         reason: 'Manually resolved by operator',
       });
-      addActivity(`✅ Resolved alert ${selectedAlert.alertId}`);
+      addActivity(`Resolved alert ${selectedAlert.alertId}`);
     } catch (err) {
       console.error('Failed to resolve alert', err);
     }
@@ -514,6 +603,10 @@ export const SuspectChaseMap: React.FC = () => {
         @keyframes pulse-purple {
           0%, 100% { box-shadow: 0 0 20px rgba(168,85,247,0.8), 0 0 40px rgba(168,85,247,0.4); transform: scale(1); }
           50% { box-shadow: 0 0 30px rgba(168,85,247,1), 0 0 60px rgba(168,85,247,0.6); transform: scale(1.15); }
+        }
+        @keyframes pulse-frontier {
+          0%, 100% { box-shadow: 0 0 16px rgba(239,68,68,0.9), 0 0 32px rgba(239,68,68,0.5); transform: scale(1); }
+          50% { box-shadow: 0 0 28px rgba(239,68,68,1), 0 0 56px rgba(239,68,68,0.7); transform: scale(1.2); }
         }
         @keyframes scan-line {
           0% { transform: translateY(-100%); opacity: 0.6; }
@@ -614,7 +707,7 @@ export const SuspectChaseMap: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-slate-900 truncate">{selectedAlert.suspectLabel}</p>
                   <p className="text-[10px] text-slate-500 font-semibold">
-                    {selectedAlert.suspectType === 'KNOWN' ? '👤 Known Missing Person' : '❓ Unknown Recurring'}
+                    {selectedAlert.suspectType === 'KNOWN' ? 'Known Missing Person' : 'Unknown Recurring'}
                   </p>
                   <p className="text-[10px] text-slate-700 font-extrabold mt-0.5">
                     {(selectedAlert.triggerSimilarity * 100).toFixed(1)}% confidence
@@ -629,9 +722,9 @@ export const SuspectChaseMap: React.FC = () => {
                 <p className="text-lg font-black text-slate-900">{selectedAlert.relayChain.length}</p>
                 <p className="text-[9px] text-slate-400 uppercase font-bold">Hops</p>
               </div>
-              <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200 text-center">
-                <p className="text-lg font-black text-slate-800">{selectedAlert.alertedCameraIds?.length ?? 0}</p>
-                <p className="text-[9px] text-slate-400 uppercase font-bold">Alerted</p>
+              <div className="bg-rose-50 rounded-lg p-2.5 border border-rose-100 text-center">
+                <p className="text-lg font-black text-rose-700">{selectedAlert.frontierCameraIds?.length ?? 0}</p>
+                <p className="text-[9px] text-rose-400 uppercase font-bold">Streaming</p>
               </div>
               <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-200 text-center">
                 <p className="text-xs font-black text-slate-800">{distanceCovered}</p>
@@ -733,18 +826,22 @@ export const SuspectChaseMap: React.FC = () => {
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-4 bg-white/95 backdrop-blur border border-slate-200 rounded-full px-5 py-2 text-[10px] font-bold text-slate-700 shadow-md">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" />
-            <span className="text-slate-600">Online</span>
+            <span className="text-slate-600">Camera</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-rose-500 inline-block animate-pulse" />
-            <span className="text-slate-800 font-extrabold">ALERTED</span>
+            <span className="w-3.5 h-3.5 rounded-full bg-rose-600 inline-block animate-pulse" />
+            <span className="text-rose-700 font-extrabold">FRONTIER</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-slate-900 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
             <span className="text-slate-800">Confirmed</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-4 h-0.5 bg-slate-800 inline-block" style={{ borderTop: '2px dashed #0f172a' }} />
+            <span className="w-3 h-3 rounded-full bg-slate-400 opacity-50 inline-block" />
+            <span className="text-slate-500">Pruned</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-4 h-0.5 bg-amber-500 inline-block" style={{ borderTop: '2px dashed #f59e0b' }} />
             <span className="text-slate-600">Trail</span>
           </span>
         </div>

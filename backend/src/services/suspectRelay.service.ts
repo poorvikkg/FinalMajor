@@ -1,14 +1,21 @@
 /**
  * suspectRelay.service.ts
  *
- * Core business logic for the CCTV Suspect Relay & Chase Network.
+ * Core business logic for the CCTV Suspect Relay & Dynamic Chase Network.
  *
- * When a suspect is detected on any camera, this service:
- *   1. Creates or updates a SuspectAlert document
- *   2. Queries MongoDB for cameras within radiusMeters using $nearSphere
- *   3. Marks those cameras as ALERTED (activeAlerts field)
- *   4. Emits Socket.IO events so the live chase map updates in real-time
- *   5. Auto-expires stale alerts every 5 minutes
+ * Chase Algorithm:
+ *   1. Suspect detected on Camera A → activate ring of cameras within radiusMeters (FRONTIER)
+ *   2. Suspect confirmed on Camera B (one of the frontier cameras):
+ *      a. Calculate bearing A → B
+ *      b. PRUNE (stop streams) any frontier cameras >90° off bearing
+ *      c. ADVANCE (start streams) for cameras adjacent to B = new FRONTIER
+ *   3. Repeat until alert resolved or expires
+ *
+ * Camera States during a chase:
+ *   FRONTIER  → streaming live, watching for suspect     (frontierCameraIds)
+ *   CONFIRMED → sighting confirmed here (relay hop)      (confirmedCameraIds)
+ *   PRUNED    → stream stopped, wrong direction          (prunedCameraIds)
+ *   ALERTED   → received notification (superset)         (alertedCameraIds)
  */
 
 import { Types } from 'mongoose';
@@ -16,6 +23,7 @@ import { Camera } from '../models/Camera';
 import { SuspectAlert, ISuspectAlert, IRelayHop } from '../models/SuspectAlert';
 import { Complaint } from '../models/Complaint';
 import { UnknownPerson } from '../models/UnknownPerson';
+import * as cameraService from './camera.service';
 import {
   emitSuspectRelayAlert,
   emitSuspectRelayUpdated,
@@ -23,11 +31,39 @@ import {
 } from '../socket/socket';
 import { logger } from '../config/logger';
 
-/** Default relay radius in meters — finds cameras within ~1 city block */
+/** Default relay radius in meters */
 const DEFAULT_RELAY_RADIUS = 1000;
 
 /** Auto-expire alerts after 2 hours of inactivity */
 const ALERT_TTL_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Bearing cutoff: frontier cameras more than this many degrees off the
+ * direction of movement are pruned (stopped). 90° means only the rear
+ * half of the ring is pruned; increase to be more aggressive.
+ */
+const PRUNE_BEARING_CUTOFF_DEG = 90;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Geometry helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Compass bearing in degrees [0, 360) from point 1 → point 2 */
+function computeBearing(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLng = toRad(lng2 - lng1);
+  const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+  const x =
+    Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+    Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}
+
+/** Smallest angular difference between two bearings [0, 180] */
+function bearingDiff(a: number, b: number): number {
+  const diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Counter for auto-generating alertIds
@@ -38,14 +74,18 @@ async function generateAlertId(): Promise<string> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Find cameras geospatially near a point, excluding a specific camera
+// Find cameras geospatially near a point, excluding specific camera IDs
 // ─────────────────────────────────────────────────────────────────────────────
 export async function getNearbyCameras(
   lat: number,
   lng: number,
   radiusMeters: number,
-  excludeCameraId?: string
+  excludeIds: string[] = []
 ) {
+  const excludeObjectIds = excludeIds
+    .filter((id) => Types.ObjectId.isValid(id))
+    .map((id) => new Types.ObjectId(id));
+
   const query: any = {
     isActive: true,
     status: { $ne: 'maintenance' },
@@ -57,11 +97,184 @@ export async function getNearbyCameras(
     },
   };
 
-  if (excludeCameraId) {
-    query._id = { $ne: new Types.ObjectId(excludeCameraId) };
+  if (excludeObjectIds.length > 0) {
+    query._id = { $nin: excludeObjectIds };
   }
 
-  return Camera.find(query).select('_id name location status rtspUrl activeAlerts').lean();
+  return Camera.find(query)
+    .select('_id name location status rtspUrl activeAlerts')
+    .lean();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// START FRONTIER CAMERAS — activate streams for the new ring of cameras
+// ─────────────────────────────────────────────────────────────────────────────
+async function startFrontierCameras(
+  alert: ISuspectAlert,
+  cameras: any[]
+): Promise<Types.ObjectId[]> {
+  const startedIds: Types.ObjectId[] = [];
+
+  // Start all cameras concurrently
+  await Promise.allSettled(
+    cameras.map(async (cam) => {
+      try {
+        // Only start cameras that have an RTSP URL configured
+        if (!cam.rtspUrl) {
+          logger.debug({ camId: cam._id }, '[ChaseRelay] Skipping cam without RTSP URL');
+          return;
+        }
+        await cameraService.startCamera(cam._id.toString(), 'target');
+        startedIds.push(cam._id as Types.ObjectId);
+        logger.info(
+          { camId: cam._id, name: cam.name, alertId: alert.alertId },
+          '[ChaseRelay] Frontier camera STARTED'
+        );
+      } catch (err: any) {
+        logger.warn(
+          { camId: cam._id, err: err.message },
+          '[ChaseRelay] Failed to start frontier camera'
+        );
+      }
+    })
+  );
+
+  return startedIds;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PRUNE FRONTIER CAMERAS — stop streams for cameras in the wrong direction
+// ─────────────────────────────────────────────────────────────────────────────
+async function pruneFrontierCameras(
+  alert: ISuspectAlert,
+  prevLat: number,
+  prevLng: number,
+  confirmedLat: number,
+  confirmedLng: number
+): Promise<Types.ObjectId[]> {
+  if (alert.frontierCameraIds.length === 0) return [];
+
+  // Movement bearing: direction the suspect is travelling
+  const movementBearing = computeBearing(prevLat, prevLng, confirmedLat, confirmedLng);
+
+  // Fetch current frontier cameras to get their locations
+  const frontierCams = await Camera.find({
+    _id: { $in: alert.frontierCameraIds },
+  })
+    .select('_id name location rtspUrl')
+    .lean();
+
+  const prunedIds: Types.ObjectId[] = [];
+
+  await Promise.allSettled(
+    frontierCams.map(async (cam) => {
+      const camLoc = cam.location as any;
+      const camLat = camLoc?.latitude;
+      const camLng = camLoc?.longitude;
+      if (!camLat || !camLng) return;
+
+      // Bearing from confirmed camera to this frontier camera
+      const camBearing = computeBearing(confirmedLat, confirmedLng, camLat, camLng);
+      const diff = bearingDiff(movementBearing, camBearing);
+
+      if (diff > PRUNE_BEARING_CUTOFF_DEG) {
+        // This camera is behind / off-path — stop it
+        try {
+          if (cam.rtspUrl) {
+            await cameraService.stopCamera(cam._id.toString());
+          }
+          prunedIds.push(cam._id as Types.ObjectId);
+          logger.info(
+            { camId: cam._id, name: cam.name, bearingDiff: diff.toFixed(1) },
+            '[ChaseRelay] Frontier camera PRUNED (off bearing)'
+          );
+        } catch (err: any) {
+          logger.warn(
+            { camId: cam._id, err: err.message },
+            '[ChaseRelay] Failed to stop pruned camera'
+          );
+        }
+      }
+    })
+  );
+
+  return prunedIds;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADVANCE RELAY FRONTIER — full hop cycle:
+//   1. Prune off-bearing cameras from previous frontier
+//   2. Start new ring of cameras around the newly confirmed camera
+// ─────────────────────────────────────────────────────────────────────────────
+async function advanceRelayFrontier(
+  alert: ISuspectAlert,
+  newHopCameraId: string,
+  newLat: number,
+  newLng: number
+): Promise<void> {
+  const alertId = alert.alertId;
+  const radiusMeters = alert.radiusMeters || DEFAULT_RELAY_RADIUS;
+
+  // ── A. Compute previous hop location for bearing calculation ──────────────
+  const chain = alert.relayChain;
+  let prevLat = newLat;
+  let prevLng = newLng;
+
+  if (chain.length >= 2) {
+    // Use the second-to-last hop as the "from" point
+    const prevHop = chain[chain.length - 2];
+    prevLat = prevHop.latitude;
+    prevLng = prevHop.longitude;
+  } else if (chain.length === 1) {
+    prevLat = chain[0].latitude;
+    prevLng = chain[0].longitude;
+  }
+
+  // ── B. Prune off-bearing frontier cameras ─────────────────────────────────
+  const prunedIds = await pruneFrontierCameras(alert, prevLat, prevLng, newLat, newLng);
+
+  // ── C. Find new ring of cameras around confirmed hop ──────────────────────
+  // Exclude: already confirmed cameras + the new hop camera itself
+  const alreadyUsedIds = [
+    ...alert.confirmedCameraIds.map((id) => id.toString()),
+    newHopCameraId,
+  ];
+
+  const newFrontierCams = await getNearbyCameras(newLat, newLng, radiusMeters, alreadyUsedIds);
+
+  // ── D. Start new frontier cameras ─────────────────────────────────────────
+  const newStartedIds = await startFrontierCameras(alert, newFrontierCams);
+
+  // ── E. Update alert document atomically ──────────────────────────────────
+  const prunedObjectIds = prunedIds;
+  const remainingFrontierIds = alert.frontierCameraIds.filter(
+    (id) => !prunedObjectIds.some((pid) => pid.equals(id))
+  );
+
+  await SuspectAlert.updateOne(
+    { _id: alert._id },
+    {
+      $set: {
+        // New frontier = (old frontier minus pruned) + newly started
+        frontierCameraIds: [...remainingFrontierIds, ...newStartedIds],
+      },
+      $addToSet: {
+        alertedCameraIds: { $each: newStartedIds },
+        prunedCameraIds: { $each: prunedObjectIds },
+      },
+      // Remove pruned from frontier
+      $pull: {},
+    }
+  );
+
+  logger.info(
+    {
+      alertId,
+      newFrontierCount: newStartedIds.length,
+      prunedCount: prunedIds.length,
+    },
+    '[ChaseRelay] Relay frontier advanced'
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,8 +283,8 @@ export async function getNearbyCameras(
 export async function triggerSuspectRelay(params: {
   cameraId: string;
   suspectType: 'KNOWN' | 'UNKNOWN';
-  personId?: string;       // for known missing person
-  unknownPersonId?: string; // for recurring unknown
+  personId?: string;
+  unknownPersonId?: string;
   similarity: number;
   snapshotObjectKey?: string;
   radiusMeters?: number;
@@ -89,7 +302,7 @@ export async function triggerSuspectRelay(params: {
   // ── 1. Fetch the detecting camera ──────────────────────────────────────────
   const detectingCamera = await Camera.findById(cameraId).lean();
   if (!detectingCamera) {
-    logger.warn({ cameraId }, '[SuspectRelay] Detecting camera not found');
+    logger.warn({ cameraId }, '[ChaseRelay] Detecting camera not found');
     return null;
   }
 
@@ -118,7 +331,7 @@ export async function triggerSuspectRelay(params: {
 
   let alert = await SuspectAlert.findOne(suspectQuery);
 
-  // ── 4. Build the relay hop for this detection ──────────────────────────────
+  // ── 4. Build the relay hop ─────────────────────────────────────────────────
   const hopIndex = alert ? alert.relayChain.length : 0;
   const newHop: IRelayHop = {
     cameraId: new Types.ObjectId(cameraId),
@@ -134,8 +347,12 @@ export async function triggerSuspectRelay(params: {
 
   // ── 5. Create or update the SuspectAlert ──────────────────────────────────
   if (!alert) {
-    // Brand new alert
+    // ── FIRST DETECTION: create alert + start initial frontier ring ──────────
     const alertId = await generateAlertId();
+
+    // Find initial ring of cameras around detecting camera
+    const initialFrontierCams = await getNearbyCameras(lat, lng, radiusMeters, [cameraId]);
+
     alert = await SuspectAlert.create({
       alertId,
       suspectType,
@@ -147,15 +364,38 @@ export async function triggerSuspectRelay(params: {
       lastDetectedCameraId: new Types.ObjectId(cameraId),
       alertedCameraIds: [],
       confirmedCameraIds: [new Types.ObjectId(cameraId)],
+      frontierCameraIds: [],
+      prunedCameraIds: [],
       relayChain: [newHop],
       radiusMeters,
       snapshotObjectKey,
       triggerSimilarity: similarity,
       expiresAt: new Date(Date.now() + ALERT_TTL_MS),
     });
-    logger.info({ alertId: alert.alertId, suspectLabel }, '[SuspectRelay] New alert created');
+
+    logger.info({ alertId: alert.alertId, suspectLabel }, '[ChaseRelay] New alert created — starting initial frontier');
+
+    // Start streams for all nearby cameras in parallel
+    const startedIds = await startFrontierCameras(alert, initialFrontierCams);
+
+    // Update alert with frontier IDs
+    if (startedIds.length > 0) {
+      await SuspectAlert.updateOne(
+        { _id: alert._id },
+        {
+          $set: { frontierCameraIds: startedIds },
+          $addToSet: { alertedCameraIds: { $each: startedIds } },
+        }
+      );
+    }
+
+    logger.info(
+      { alertId: alert.alertId, frontierCount: startedIds.length },
+      '[ChaseRelay] Initial frontier activated'
+    );
   } else {
-    // Extend existing alert with new hop
+    // ── HOP CONFIRMED: suspect seen at a frontier camera ─────────────────────
+    // Update alert: push new hop, move this camera from frontier → confirmed
     await SuspectAlert.updateOne(
       { _id: alert._id },
       {
@@ -165,53 +405,41 @@ export async function triggerSuspectRelay(params: {
         },
         $set: {
           lastDetectedCameraId: new Types.ObjectId(cameraId),
-          expiresAt: new Date(Date.now() + ALERT_TTL_MS), // refresh expiry
+          expiresAt: new Date(Date.now() + ALERT_TTL_MS),
           snapshotObjectKey: snapshotObjectKey || alert.snapshotObjectKey,
         },
-        // Remove from alerted (it's now confirmed)
-        $pull: { alertedCameraIds: new Types.ObjectId(cameraId) },
+        $pull: {
+          alertedCameraIds: new Types.ObjectId(cameraId),
+          frontierCameraIds: new Types.ObjectId(cameraId),
+        },
       }
     );
+
+    // Re-fetch with updated relayChain for bearing computation
+    const updatedAlert = await SuspectAlert.findById(alert._id).lean() as unknown as ISuspectAlert;
+
+    if (updatedAlert) {
+      // Advance the frontier: prune dead-ends + start new ring
+      await advanceRelayFrontier(updatedAlert, cameraId, lat, lng);
+    }
+
     alert = await SuspectAlert.findById(alert._id).lean() as any;
-    logger.info({ alertId: alert!.alertId, hop: hopIndex }, '[SuspectRelay] Relay hop confirmed');
+    logger.info({ alertId: alert!.alertId, hop: hopIndex }, '[ChaseRelay] Relay hop confirmed — frontier advanced');
   }
 
   if (!alert) return null;
 
-  // ── 6. Find adjacent cameras and mark them ALERTED ────────────────────────
-  const nearbyCameras = await getNearbyCameras(lat, lng, radiusMeters, cameraId);
-
-  const newAlertedIds: Types.ObjectId[] = [];
-  for (const cam of nearbyCameras) {
-    const camAlerts: Types.ObjectId[] = (cam as any).activeAlerts || [];
-    const alreadyAlerted = camAlerts.some((id) => id.equals(alert!._id));
-    if (!alreadyAlerted) {
-      await Camera.updateOne(
-        { _id: cam._id },
-        { $addToSet: { activeAlerts: alert!._id } }
-      );
-      newAlertedIds.push(cam._id as Types.ObjectId);
-    }
-  }
-
-  // Save alerted camera IDs to the alert document
-  if (newAlertedIds.length > 0) {
-    await SuspectAlert.updateOne(
-      { _id: alert._id },
-      { $addToSet: { alertedCameraIds: { $each: newAlertedIds } } }
-    );
-  }
-
-  // ── 7. Emit real-time Socket.IO events ────────────────────────────────────
+  // ── 6. Emit real-time Socket.IO events ────────────────────────────────────
   const freshAlert = await SuspectAlert.findById(alert._id)
     .populate('originCameraId', 'name location')
     .populate('lastDetectedCameraId', 'name location')
     .populate('alertedCameraIds', 'name location status')
     .populate('confirmedCameraIds', 'name location')
+    .populate('frontierCameraIds', 'name location status')
+    .populate('prunedCameraIds', 'name location')
     .lean();
 
   if (hopIndex === 0) {
-    // First detection → full alert blast
     emitSuspectRelayAlert({
       alertId: freshAlert!.alertId,
       suspectType: freshAlert!.suspectType,
@@ -220,17 +448,19 @@ export async function triggerSuspectRelay(params: {
       triggerSimilarity: freshAlert!.triggerSimilarity,
       originCamera: freshAlert!.originCameraId,
       alertedCameras: freshAlert!.alertedCameraIds,
+      frontierCameras: (freshAlert as any).frontierCameraIds,
       relayChain: freshAlert!.relayChain,
       createdAt: freshAlert!.createdAt,
     });
   } else {
-    // Subsequent hop → update trail
     emitSuspectRelayUpdated({
       alertId: freshAlert!.alertId,
       suspectLabel: freshAlert!.suspectLabel,
       lastDetectedCamera: freshAlert!.lastDetectedCameraId,
       alertedCameras: freshAlert!.alertedCameraIds,
       confirmedCameras: freshAlert!.confirmedCameraIds,
+      frontierCameras: (freshAlert as any).frontierCameraIds,
+      prunedCameras: (freshAlert as any).prunedCameraIds,
       relayChain: freshAlert!.relayChain,
       updatedAt: new Date(),
     });
@@ -240,17 +470,32 @@ export async function triggerSuspectRelay(params: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Resolve an alert (manually by admin or when suspect is apprehended)
+// Resolve an alert — stops ALL frontier camera streams, cleans up state
 // ─────────────────────────────────────────────────────────────────────────────
 export async function resolveAlert(alertId: string, reason = 'Manual resolution') {
   const alert = await SuspectAlert.findOne({ alertId });
   if (!alert) return null;
   if (alert.status !== 'ACTIVE') return alert;
 
+  // Stop all currently streaming frontier cameras
+  if (alert.frontierCameraIds.length > 0) {
+    await Promise.allSettled(
+      alert.frontierCameraIds.map(async (camId) => {
+        try {
+          await cameraService.stopCamera(camId.toString());
+          logger.info({ camId: camId.toString(), alertId }, '[ChaseRelay] Frontier camera stopped on resolve');
+        } catch (err: any) {
+          logger.warn({ camId: camId.toString(), err: err.message }, '[ChaseRelay] Failed to stop frontier camera on resolve');
+        }
+      })
+    );
+  }
+
   // Clear activeAlerts from all cameras in this chain
   const allCameraIds = [
     ...alert.alertedCameraIds,
     ...alert.confirmedCameraIds,
+    ...alert.frontierCameraIds,
   ];
   await Camera.updateMany(
     { _id: { $in: allCameraIds } },
@@ -264,6 +509,7 @@ export async function resolveAlert(alertId: string, reason = 'Manual resolution'
         status: 'RESOLVED',
         resolvedAt: new Date(),
         resolvedReason: reason,
+        frontierCameraIds: [],
       },
     },
     { new: true }
@@ -275,7 +521,7 @@ export async function resolveAlert(alertId: string, reason = 'Manual resolution'
     resolvedAt: new Date(),
   });
 
-  logger.info({ alertId, reason }, '[SuspectRelay] Alert resolved');
+  logger.info({ alertId, reason }, '[ChaseRelay] Alert resolved — all frontier cameras stopped');
   return resolved;
 }
 
@@ -290,7 +536,7 @@ export async function expireStaleAlerts() {
 
   for (const alert of stale) {
     await resolveAlert(alert.alertId, 'Auto-expired due to inactivity');
-    logger.info({ alertId: alert.alertId }, '[SuspectRelay] Alert auto-expired');
+    logger.info({ alertId: alert.alertId }, '[ChaseRelay] Alert auto-expired');
   }
 
   return stale.length;
@@ -299,11 +545,7 @@ export async function expireStaleAlerts() {
 // ─────────────────────────────────────────────────────────────────────────────
 // List alerts with pagination and optional status filter
 // ─────────────────────────────────────────────────────────────────────────────
-export async function getAlerts(
-  page = 1,
-  limit = 20,
-  status?: string
-) {
+export async function getAlerts(page = 1, limit = 20, status?: string) {
   const query: any = {};
   if (status) query.status = status;
 
@@ -312,6 +554,7 @@ export async function getAlerts(
       .populate('originCameraId', 'name location')
       .populate('lastDetectedCameraId', 'name location')
       .populate('alertedCameraIds', 'name location status')
+      .populate('frontierCameraIds', 'name location status')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -333,6 +576,8 @@ export async function getAlertById(alertId: string) {
     .populate('lastDetectedCameraId', 'name location status')
     .populate('alertedCameraIds', 'name location status')
     .populate('confirmedCameraIds', 'name location status')
+    .populate('frontierCameraIds', 'name location status')
+    .populate('prunedCameraIds', 'name location status')
     .lean();
 }
 
@@ -345,6 +590,7 @@ export async function getAlertsForCamera(cameraId: string) {
     $or: [
       { alertedCameraIds: new Types.ObjectId(cameraId) },
       { confirmedCameraIds: new Types.ObjectId(cameraId) },
+      { frontierCameraIds: new Types.ObjectId(cameraId) },
     ],
   })
     .select('alertId suspectLabel suspectType snapshotObjectKey triggerSimilarity createdAt')

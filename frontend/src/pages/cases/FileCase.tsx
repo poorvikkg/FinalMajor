@@ -209,9 +209,6 @@ export const FileCase: React.FC = () => {
         <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">
           Report Missing Person
         </h1>
-        <p className="text-xs text-slate-500 font-medium mt-1">
-          Fill all three sections completely. This data will be used to search through CCTV footage across the surveillance network.
-        </p>
       </div>
 
       {submitError && (

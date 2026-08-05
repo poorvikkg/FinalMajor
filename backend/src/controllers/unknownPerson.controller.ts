@@ -201,3 +201,21 @@ export async function markReviewed(
     next(error);
   }
 }
+
+export async function deleteUnknownPerson(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { unknownId } = req.params;
+    const result = await unknownPersonService.deleteUnknownPerson(unknownId);
+    if (!result) {
+      res.status(404).json({ success: false, message: 'Unknown person identity not found' });
+      return;
+    }
+    sendSuccess(res, 'Unknown person deleted successfully', result);
+  } catch (error) {
+    next(error);
+  }
+}

@@ -15,5 +15,7 @@ router.get('/', zoneController.listZones);
 router.post('/', requireRole('admin'), zoneController.createZone);
 router.delete('/:zoneId', requireRole('admin'), zoneController.deleteZone);
 router.patch('/:zoneId/toggle', requireRole('admin'), zoneController.toggleZone);
+router.post('/:zoneId/trigger-scan', requireRole('admin'), zoneController.triggerZoneScan);
+router.post('/:zoneId/stop-scan', requireRole('admin'), zoneController.stopZoneScan);
 
 export default router;

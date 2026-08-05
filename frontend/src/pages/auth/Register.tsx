@@ -45,7 +45,6 @@ export const Register: React.FC = () => {
               <ShieldPlus className="h-8 w-8 text-black" />
             </div>
             <h1 className="text-xl font-black text-black tracking-widest uppercase">Register Credentials</h1>
-            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Initialize User Clearance</p>
           </div>
 
           {error && (

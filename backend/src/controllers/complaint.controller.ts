@@ -6,6 +6,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../types';
 import * as complaintService from '../services/complaint.service';
+import * as reportService from '../services/report.service';
 import { sendSuccess, sendPaginated } from '../utils/response';
 import { getPaginationOptions, buildPaginationMeta } from '../utils/pagination';
 import { uploadToMinio } from '../services/minio.service';
@@ -19,7 +20,22 @@ export async function getAll(req: AuthRequest, res: Response, next: NextFunction
     const { page, limit } = getPaginationOptions(req);
     const status = req.query.status as string | undefined;
     const priority = req.query.priority as string | undefined;
-    const { complaints, total } = await complaintService.getAllComplaints(page, limit, status, priority);
+
+    let createdBy: string | undefined = undefined;
+    let policeStation: string | undefined = undefined;
+    if (req.user?.role === 'station' && req.query.allStations !== 'true') {
+      createdBy = req.user._id.toString();
+      policeStation = req.user.name;
+    }
+
+    const { complaints, total } = await complaintService.getAllComplaints(
+      page,
+      limit,
+      status,
+      priority,
+      createdBy,
+      policeStation
+    );
     sendPaginated(res, 'Complaints retrieved', complaints, buildPaginationMeta(total, page, limit));
   } catch (err) {
     next(err);
@@ -29,6 +45,25 @@ export async function getAll(req: AuthRequest, res: Response, next: NextFunction
 export async function getOne(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const complaint = await complaintService.getComplaintById(req.params.id);
+
+    if (req.user?.role === 'station') {
+      const isCreator =
+        complaint.createdBy?._id?.toString() === req.user._id.toString() ||
+        complaint.createdBy?.toString() === req.user._id.toString();
+      const isSameStation =
+        complaint.policeStation &&
+        req.user.name &&
+        complaint.policeStation.toLowerCase() === req.user.name.toLowerCase();
+
+      if (!isCreator && !isSameStation) {
+        res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only view complaints registered by your police station',
+        });
+        return;
+      }
+    }
+
     sendSuccess(res, 'Complaint retrieved', complaint);
   } catch (err) {
     next(err);
@@ -37,6 +72,26 @@ export async function getOne(req: AuthRequest, res: Response, next: NextFunction
 
 export async function getHistory(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
+    const complaint = await complaintService.getComplaintById(req.params.id);
+
+    if (req.user?.role === 'station') {
+      const isCreator =
+        complaint.createdBy?._id?.toString() === req.user._id.toString() ||
+        complaint.createdBy?.toString() === req.user._id.toString();
+      const isSameStation =
+        complaint.policeStation &&
+        req.user.name &&
+        complaint.policeStation.toLowerCase() === req.user.name.toLowerCase();
+
+      if (!isCreator && !isSameStation) {
+        res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only view history for complaints registered by your police station',
+        });
+        return;
+      }
+    }
+
     const history = await complaintService.getCaseHistory(req.params.id);
     sendSuccess(res, 'Case history retrieved', history);
   } catch (err) {
@@ -114,6 +169,26 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
 
 export async function updateStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
+    // Authorization check
+    const complaint = await complaintService.getComplaintById(req.params.id);
+    if (req.user?.role === 'station') {
+      const isCreator =
+        complaint.createdBy?._id?.toString() === req.user._id.toString() ||
+        complaint.createdBy?.toString() === req.user._id.toString();
+      const isSameStation =
+        complaint.policeStation &&
+        req.user.name &&
+        complaint.policeStation.toLowerCase() === req.user.name.toLowerCase();
+
+      if (!isCreator && !isSameStation) {
+        res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only update complaints registered by your police station',
+        });
+        return;
+      }
+    }
+
     const evidenceUrls: string[] = [];
 
     // Handle evidence image uploads if any
@@ -146,8 +221,27 @@ export async function updateStatus(req: AuthRequest, res: Response, next: NextFu
 
 export async function update(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const complaint = await complaintService.updateComplaint(req.params.id, req.body);
-    sendSuccess(res, 'Complaint updated', complaint);
+    const complaint = await complaintService.getComplaintById(req.params.id);
+    if (req.user?.role === 'station') {
+      const isCreator =
+        complaint.createdBy?._id?.toString() === req.user._id.toString() ||
+        complaint.createdBy?.toString() === req.user._id.toString();
+      const isSameStation =
+        complaint.policeStation &&
+        req.user.name &&
+        complaint.policeStation.toLowerCase() === req.user.name.toLowerCase();
+
+      if (!isCreator && !isSameStation) {
+        res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only update complaints registered by your police station',
+        });
+        return;
+      }
+    }
+
+    const updated = await complaintService.updateComplaint(req.params.id, req.body);
+    sendSuccess(res, 'Complaint updated', updated);
   } catch (err) {
     next(err);
   }
@@ -155,6 +249,25 @@ export async function update(req: AuthRequest, res: Response, next: NextFunction
 
 export async function remove(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
+    const complaint = await complaintService.getComplaintById(req.params.id);
+    if (req.user?.role === 'station') {
+      const isCreator =
+        complaint.createdBy?._id?.toString() === req.user._id.toString() ||
+        complaint.createdBy?.toString() === req.user._id.toString();
+      const isSameStation =
+        complaint.policeStation &&
+        req.user.name &&
+        complaint.policeStation.toLowerCase() === req.user.name.toLowerCase();
+
+      if (!isCreator && !isSameStation) {
+        res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only delete complaints registered by your police station',
+        });
+        return;
+      }
+    }
+
     await complaintService.deleteComplaint(req.params.id);
     sendSuccess(res, 'Complaint deleted successfully');
   } catch (err) {
@@ -169,6 +282,26 @@ export async function removeAttachment(req: AuthRequest, res: Response, next: Ne
       res.status(400).json({ success: false, message: 'Attachment URL is required' });
       return;
     }
+
+    const complaint = await complaintService.getComplaintById(req.params.id);
+    if (req.user?.role === 'station') {
+      const isCreator =
+        complaint.createdBy?._id?.toString() === req.user._id.toString() ||
+        complaint.createdBy?.toString() === req.user._id.toString();
+      const isSameStation =
+        complaint.policeStation &&
+        req.user.name &&
+        complaint.policeStation.toLowerCase() === req.user.name.toLowerCase();
+
+      if (!isCreator && !isSameStation) {
+        res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only modify complaints registered by your police station',
+        });
+        return;
+      }
+    }
+
     const updated = await complaintService.removeAttachment(req.params.id, url);
     sendSuccess(res, 'Attachment removed successfully', updated);
   } catch (err) {
@@ -178,8 +311,29 @@ export async function removeAttachment(req: AuthRequest, res: Response, next: Ne
 
 export async function getStats(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const stats = await complaintService.getComplaintStats();
+    let createdBy: string | undefined = undefined;
+    let policeStation: string | undefined = undefined;
+    if (req.user?.role === 'station') {
+      createdBy = req.user._id.toString();
+      policeStation = req.user.name;
+    }
+
+    const stats = await complaintService.getComplaintStats(createdBy, policeStation);
     sendSuccess(res, 'Complaint stats retrieved', stats);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function downloadReport(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    
+    // Set headers for inline PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Case_Report_${id}.pdf"`);
+    
+    await reportService.generateComplaintReport(id, res);
   } catch (err) {
     next(err);
   }

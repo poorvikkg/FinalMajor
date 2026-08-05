@@ -155,12 +155,24 @@ export async function getThreatLeaderboard(limit = 20): Promise<ThreatScoreResul
 
   const results: ThreatScoreResult[] = [];
 
+  // ── Batch: recent sighting counts for all unknowns in ONE aggregation ──────
+  const unknownIds = unknowns.map((u) => u._id);
+  const unknownRecentAgg = await (Sighting as any).aggregate([
+    {
+      $match: {
+        unknownPersonId: { $in: unknownIds },
+        detectedAt: { $gte: since24h },
+      },
+    },
+    { $group: { _id: '$unknownPersonId', count: { $sum: 1 } } },
+  ]);
+  const unknownRecentMap = new Map<string, number>(
+    unknownRecentAgg.map((r: any) => [r._id.toString(), r.count])
+  );
+
   for (const unknown of unknowns) {
     const id = unknown._id.toString();
-    const recentSightings = await Sighting.countDocuments({
-      unknownPersonId: unknown._id,
-      detectedAt: { $gte: since24h },
-    });
+    const recentSightings = unknownRecentMap.get(id) || 0;
     const alertInfo = alertHopsMap.get(id);
     const score = await scoreUnknown(unknown, recentSightings, alertInfo?.hops || 0);
     if (alertInfo) score.activeAlertId = alertInfo.alertId;
@@ -176,19 +188,46 @@ export async function getThreatLeaderboard(limit = 20): Promise<ThreatScoreResul
     .limit(15)
     .lean();
 
-  for (const complaint of complaints) {
-    const [sightingCount, cameraCount, recentCount] = await Promise.all([
-      Sighting.countDocuments({ personId: complaint._id }),
-      Sighting.distinct('cameraId', { personId: complaint._id }).then((ids) => ids.length),
-      Sighting.countDocuments({ personId: complaint._id, detectedAt: { $gte: since24h } }),
+  if (complaints.length > 0) {
+    const complaintIds = complaints.map((c) => c._id);
+
+    // ── Single aggregation: total count + distinct cameras + recent count for ALL complaints ──
+    const complaintSightingAgg = await (Sighting as any).aggregate([
+      { $match: { personId: { $in: complaintIds } } },
+      {
+        $group: {
+          _id: '$personId',
+          totalCount: { $sum: 1 },
+          distinctCameras: { $addToSet: '$cameraId' },
+          recentCount: {
+            $sum: {
+              $cond: [{ $gte: ['$detectedAt', since24h] }, 1, 0],
+            },
+          },
+        },
+      },
     ]);
 
-    if (sightingCount === 0 && recentCount === 0) continue; // skip uncorrelated
+    const complaintStatsMap = new Map<string, { total: number; cameras: number; recent: number }>(
+      complaintSightingAgg.map((r: any) => [
+        r._id.toString(),
+        {
+          total: r.totalCount,
+          cameras: r.distinctCameras.filter(Boolean).length,
+          recent: r.recentCount,
+        },
+      ])
+    );
 
-    const alertInfo = alertHopsMap.get(complaint._id.toString());
-    const score = await scoreKnown(complaint, sightingCount, cameraCount, recentCount, alertInfo?.hops || 0);
-    if (alertInfo) score.activeAlertId = alertInfo.alertId;
-    results.push(score);
+    for (const complaint of complaints) {
+      const stats = complaintStatsMap.get(complaint._id.toString());
+      if (!stats || (stats.total === 0 && stats.recent === 0)) continue; // skip uncorrelated
+
+      const alertInfo = alertHopsMap.get(complaint._id.toString());
+      const score = await scoreKnown(complaint, stats.total, stats.cameras, stats.recent, alertInfo?.hops || 0);
+      if (alertInfo) score.activeAlertId = alertInfo.alertId;
+      results.push(score);
+    }
   }
 
   return results.sort((a, b) => b.score - a.score).slice(0, limit);

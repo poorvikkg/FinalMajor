@@ -69,3 +69,31 @@ export async function toggleZone(req: Request, res: Response, next: NextFunction
     next(err);
   }
 }
+
+/** POST /zones/:zoneId/trigger-scan */
+export async function triggerZoneScan(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { zoneId } = req.params;
+    const { targetUserId } = req.body;
+
+    if (!targetUserId) {
+      throw new AppError('targetUserId is required', 400);
+    }
+
+    const result = await zoneService.triggerZoneScan(zoneId, targetUserId);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** POST /zones/:zoneId/stop-scan */
+export async function stopZoneScan(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { zoneId } = req.params;
+    const result = await zoneService.stopZoneScan(zoneId);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}

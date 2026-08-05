@@ -10,7 +10,7 @@ import { CaseHistoryTimeline } from '../../components/shared/CaseHistoryTimeline
 import { PersonMovementView } from '../../components/shared/PersonMovementView';
 import type { Complaint, ComplaintStatus } from '../../types';
 import { useAuthStore } from '../../store/auth';
-import { Navigation } from 'lucide-react';
+import { Navigation, FileDown } from 'lucide-react';
 import api from '../../api';
 
 // ── Label maps ───────────────────────────────────────────────────────────────
@@ -195,7 +195,6 @@ export const ComplaintManagement: React.FC = () => {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">All Complaints</h1>
-            <p className="text-xs text-slate-500 mt-0.5">Track all submitted missing person reports. Auto-refreshes every 30 seconds.</p>
           </div>
           <Button onClick={() => navigate('/file-case')}>File New Report</Button>
         </div>
@@ -272,8 +271,15 @@ export const ComplaintManagement: React.FC = () => {
 
               {activeTab === 'details' ? (
                 <div className="space-y-4 text-xs">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-100 pb-3">
                     <Badge variant={STATUS_VARIANT[selected.status]}>{STATUS_LABELS[selected.status]}</Badge>
+                    <button
+                      onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL || '/api'}/complaints/${selected._id}/download-report`, '_blank')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-700 transition"
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                      Download Official Report
+                    </button>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <InfoRow label="Subject" value={selected.missingPersonName || 'Unknown'} />
@@ -325,7 +331,6 @@ export const ComplaintManagement: React.FC = () => {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">Missing Person Reports</h1>
-          <p className="text-xs text-slate-500 mt-0.5">Manage cases, update status, and view investigation timelines.</p>
         </div>
         <Button onClick={() => navigate('/file-case')}>New Report</Button>
       </div>
@@ -448,8 +453,15 @@ export const ComplaintManagement: React.FC = () => {
             {activeTab === 'details' ? (
               <div className="space-y-5 text-xs max-h-[60vh] overflow-y-auto pr-1">
                 {/* Status badges */}
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex justify-between items-center gap-2 flex-wrap border-b border-slate-100 pb-3">
                   <Badge variant={STATUS_VARIANT[selected.status]}>{STATUS_LABELS[selected.status]}</Badge>
+                  <button
+                    onClick={() => window.open(`${import.meta.env.VITE_API_BASE_URL || '/api'}/complaints/${selected._id}/download-report`, '_blank')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 rounded-lg text-[10px] font-black uppercase tracking-wider text-slate-700 transition"
+                  >
+                    <FileDown className="w-3.5 h-3.5" />
+                    Download Official Report
+                  </button>
                 </div>
 
                 {/* Missing Person */}

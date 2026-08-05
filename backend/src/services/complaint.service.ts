@@ -57,9 +57,10 @@ export async function getAllComplaints(
   limit: number,
   status?: string,
   priority?: string,
-  createdBy?: string
+  createdBy?: string,
+  policeStation?: string
 ) {
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, any> = {};
   if (status) {
     if (status.includes(',')) {
       filter.status = { $in: status.split(',') };
@@ -68,7 +69,18 @@ export async function getAllComplaints(
     }
   }
   if (priority) filter.priority = priority;
-  if (createdBy) filter.createdBy = createdBy;
+
+  if (createdBy || policeStation) {
+    const conditions: Record<string, any>[] = [];
+    if (createdBy) {
+      conditions.push({ createdBy });
+    }
+    if (policeStation) {
+      conditions.push({ policeStation: { $regex: new RegExp(`^${policeStation}$`, 'i') } });
+    }
+    filter.$or = conditions;
+  }
+
   return complaintRepo.findAllComplaints({ page, limit, skip: (page - 1) * limit }, filter);
 }
 
@@ -223,8 +235,8 @@ export async function removeAttachment(id: string, url: string) {
 
 // ── Stats ────────────────────────────────────────────────────────────────────
 
-export async function getComplaintStats() {
-  const stats = await complaintRepo.countComplaintsByStatus();
+export async function getComplaintStats(createdBy?: string, policeStation?: string) {
+  const stats = await complaintRepo.countComplaintsByStatus(createdBy, policeStation);
   return stats.reduce(
     (acc, { _id, count }) => ({ ...acc, [_id]: count }),
     {} as Record<string, number>

@@ -85,6 +85,17 @@ export function RecurringUnknowns() {
     },
   });
 
+  // Delete unknown person mutation
+  const deleteUnknownMutation = useMutation({
+    mutationFn: async (unknownId: string) => {
+      await api.delete(`/unknown-persons/${unknownId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['unknownPersons'] });
+      queryClient.invalidateQueries({ queryKey: ['unknownPersonStats'] });
+    },
+  });
+
   const rawList: UnknownPerson[] = data?.data || [];
   const pagination = data?.pagination || { page: 1, totalPages: 1 };
   const stats = statsData || { total: 0, recurring: 0, reviewRequired: 0, reviewed: 0 };
@@ -187,20 +198,34 @@ export function RecurringUnknowns() {
     {
       header: 'Actions',
       accessor: (row: UnknownPerson) => (
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-xs font-semibold"
-          onClick={() => {
-            setSelectedPerson(row);
-            setModalTab('timeline');
-            setReviewAction('reviewed');
-            setNotesInput(row.reviewNotes || '');
-          }}
-        >
-          <Eye className="h-3.5 w-3.5 mr-1" />
-          Details
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs font-semibold"
+            onClick={() => {
+              setSelectedPerson(row);
+              setModalTab('timeline');
+              setReviewAction('reviewed');
+              setNotesInput(row.reviewNotes || '');
+            }}
+          >
+            <Eye className="h-3.5 w-3.5 mr-1" />
+            Details
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs font-semibold text-rose-600 border-rose-200 hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-colors"
+            onClick={() => {
+              if (window.confirm(`Are you sure you want to delete unknown identity ${row.unknownId}?`)) {
+                deleteUnknownMutation.mutate(row.unknownId);
+              }
+            }}
+          >
+            Delete
+          </Button>
+        </div>
       ),
     },
   ];
@@ -212,9 +237,6 @@ export function RecurringUnknowns() {
         <h1 className="text-xl font-bold text-slate-900 tracking-tight">
           Recurring Unknown Persons
         </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Cross-video anonymous identity clustering registry for investigation prioritization.
-        </p>
       </div>
 
       {/* Metrics Bar */}

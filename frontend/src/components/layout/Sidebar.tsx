@@ -13,33 +13,49 @@ import {
   UserSearch,
   MapPin,
   Radio,
-  ShieldAlert,
   Zap,
   Network,
+  Layers,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const { user } = useAuthStore();
 
-  const menuItems = [
-    { to: '/', label: 'Command Center', icon: LayoutDashboard, roles: ['admin'] },
-    { to: '/monitoring', label: 'Live Monitoring', icon: Tv, roles: ['admin'] },
-    { to: '/analyse', label: 'Video Analysis', icon: ScanSearch, roles: ['admin'] },
-    { to: '/detection-map', label: 'Detection Map', icon: MapPin, roles: ['admin', 'station'] },
-    { to: '/suspects/chase-map', label: 'Chase Map', icon: Radio, roles: ['admin'] },
-    { to: '/suspects/alerts', label: 'Relay Alerts', icon: ShieldAlert, roles: ['admin'] },
-    { to: '/analytics/threats', label: 'Threat Board', icon: Zap, roles: ['admin'] },
-    { to: '/analytics/accomplices', label: 'Accomplice Engine', icon: Network, roles: ['admin'] },
-    { to: '/zones', label: 'Geofence Zones', icon: MapPin, roles: ['admin'] },
-    { to: '/cameras', label: 'Camera Management', icon: Camera, roles: ['admin'] },
-    { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },
-    { to: '/file-case', label: 'Register Complaint', icon: FilePlus, roles: ['admin', 'station'] },
-    { to: '/complaints', label: 'View All Complaints', icon: FileQuestion, roles: ['admin', 'station'] },
-    { to: '/recurring-unknowns', label: 'Recurring Unknowns', icon: UserSearch, roles: ['admin'] },
-    { to: '/users', label: 'Station Management', icon: Users, roles: ['admin'] },
+  const sections = [
+    {
+      title: 'Operations',
+      items: [
+        { to: '/', label: 'Command Center', icon: LayoutDashboard, roles: ['admin'] },
+        { to: '/monitoring', label: 'Live Monitoring', icon: Tv, roles: ['admin'] },
+        { to: '/analyse', label: 'Video Analysis', icon: ScanSearch, roles: ['admin'] },
+        { to: '/detection-map', label: 'Detection Map', icon: MapPin, roles: ['admin', 'station'] },
+      ]
+    },
+    {
+      title: 'Intelligence',
+      items: [
+        { to: '/suspects/chase-map', label: 'Chase Map', icon: Radio, roles: ['admin'] },
+        { to: '/analytics/threats', label: 'Threat Board', icon: Zap, roles: ['admin'] },
+        { to: '/analytics/accomplices', label: 'Accomplice Engine', icon: Network, roles: ['admin'] },
+        { to: '/zones', label: 'Geofence Zones', icon: Layers, roles: ['admin'] },
+      ]
+    },
+    {
+      title: 'Cases & Records',
+      items: [
+        { to: '/complaints', label: 'View Complaints', icon: FileQuestion, roles: ['admin', 'station'] },
+        { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },
+        { to: '/recurring-unknowns', label: 'Recurring Unknowns', icon: UserSearch, roles: ['admin'] },
+      ]
+    },
+    {
+      title: 'Configuration',
+      items: [
+        { to: '/cameras', label: 'Camera Manager', icon: Camera, roles: ['admin'] },
+        { to: '/users', label: 'Station Manager', icon: Users, roles: ['admin'] },
+      ]
+    }
   ];
-
-  const visibleItems = menuItems.filter((item) => user && item.roles.includes(user.role));
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col min-h-screen text-slate-700 select-none relative overflow-hidden">
@@ -51,32 +67,48 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Nav Menu */}
-      <nav className="flex-1 px-4 py-6 space-y-1.5 relative z-10 overflow-y-auto overflow-x-hidden">
-        {visibleItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 group relative overflow-hidden ${
-                isActive
-                  ? 'text-white bg-slate-900 shadow-md shadow-slate-900/10'
-                  : 'hover:text-slate-900 text-slate-600 hover:bg-slate-100'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {/* Active indicator bar */}
-                {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-white rounded-r-full opacity-50" />
-                )}
-                
-                <item.icon className={`h-4.5 w-4.5 shrink-0 relative z-10 transition-colors duration-200 ${isActive ? 'text-white' : 'group-hover:text-slate-900'}`} />
-                <span className="relative z-10">{item.label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
+      <nav className="flex-1 px-4 py-4 space-y-5 relative z-10 overflow-y-auto overflow-x-hidden">
+        {sections.map((section) => {
+          const visibleSectionItems = section.items.filter(
+            (item) => user && item.roles.includes(user.role)
+          );
+          if (visibleSectionItems.length === 0) return null;
+
+          return (
+            <div key={section.title} className="space-y-1">
+              <p className="px-3.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 select-none">
+                {section.title}
+              </p>
+              <div className="space-y-0.5">
+                {visibleSectionItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200 group relative overflow-hidden ${
+                        isActive
+                          ? 'text-white bg-slate-900 shadow-md shadow-slate-900/10'
+                          : 'hover:text-slate-900 text-slate-600 hover:bg-slate-100'
+                      }`
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {/* Active indicator bar */}
+                        {isActive && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-white rounded-r-full opacity-50" />
+                        )}
+                        
+                        <item.icon className={`h-4 w-4 shrink-0 relative z-10 transition-colors duration-200 ${isActive ? 'text-white' : 'group-hover:text-slate-900'}`} />
+                        <span className="relative z-10">{item.label}</span>
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </nav>
 
       {/* Profile Area */}

@@ -1,10 +1,10 @@
-/**
- * stream_grabber.py
- *
- * Threaded frame grabber for live video feeds.
- * Solves the OpenCV internal buffer build-up lag by reading frames continually in a
- * background thread and only returning the most recent frame.
- */
+"""
+stream_grabber.py
+
+Threaded frame grabber for live video feeds.
+Solves the OpenCV internal buffer build-up lag by reading frames continually in a
+background thread and only returning the most recent frame.
+"""
 
 import cv2
 import threading

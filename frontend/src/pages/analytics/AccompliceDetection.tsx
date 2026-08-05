@@ -23,6 +23,7 @@ import {
   Eye,
 } from 'lucide-react';
 import api from '../../api';
+import { getSnapshotUrl } from '../../utils/pathPrediction';
 
 // Types matching the backend response
 interface SightingInfo {
@@ -428,9 +429,6 @@ export const AccompliceDetection: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900 font-heading">Link Analysis Engine</h1>
-            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
-              Accomplice Detection System • Spatial-Temporal Sighting Logs Comparison
-            </p>
           </div>
         </div>
         <button
@@ -515,7 +513,7 @@ export const AccompliceDetection: React.FC = () => {
                       >
                         <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-200 flex-shrink-0">
                           {item.snapshot ? (
-                            <img src={item.snapshot} alt="" className="w-full h-full object-cover" />
+                            <img src={getSnapshotUrl(item.snapshot)} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <User className="w-3.5 h-3.5 text-slate-400" />
                           )}
@@ -523,7 +521,7 @@ export const AccompliceDetection: React.FC = () => {
                         <div className="truncate">
                           <p className="text-xs font-bold text-slate-800 truncate mb-0.5">{item.label}</p>
                           <p className="text-[9px] uppercase tracking-wide text-slate-400 font-extrabold">
-                            {item.type === 'KNOWN' ? '👤 Known Missing Person' : '❓ Unknown Recurring'}
+                            {item.type === 'KNOWN' ? 'Known Missing Person' : 'Unknown Recurring'}
                           </p>
                         </div>
                       </button>
@@ -721,7 +719,7 @@ export const AccompliceDetection: React.FC = () => {
                       height="1"
                       width="1"
                       preserveAspectRatio="xMidYMid slice"
-                      href={node.snapshot || 'https://via.placeholder.com/150'}
+                      href={getSnapshotUrl(node.snapshot) || 'https://via.placeholder.com/150'}
                     />
                   </pattern>
                 ))}
@@ -909,7 +907,7 @@ export const AccompliceDetection: React.FC = () => {
                   <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
                     <img
                       src={
-                        simulationState.nodes.find((n) => n.id === selectedLink.source)?.snapshot ||
+                        getSnapshotUrl(simulationState.nodes.find((n) => n.id === selectedLink.source)?.snapshot) ||
                         'https://via.placeholder.com/150'
                       }
                       alt=""
@@ -931,7 +929,7 @@ export const AccompliceDetection: React.FC = () => {
                   <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
                     <img
                       src={
-                        simulationState.nodes.find((n) => n.id === selectedLink.target)?.snapshot ||
+                        getSnapshotUrl(simulationState.nodes.find((n) => n.id === selectedLink.target)?.snapshot) ||
                         'https://via.placeholder.com/150'
                       }
                       alt=""
@@ -962,7 +960,7 @@ export const AccompliceDetection: React.FC = () => {
                       <div className="space-y-1 relative">
                         <div className="h-24 w-full bg-slate-100 rounded-lg overflow-hidden border border-slate-200 relative group">
                           <img
-                            src={co.sightingA.snapshot}
+                            src={getSnapshotUrl(co.sightingA.snapshot)}
                             alt=""
                             className="w-full h-full object-cover"
                           />
@@ -978,7 +976,7 @@ export const AccompliceDetection: React.FC = () => {
                       <div className="space-y-1 relative">
                         <div className="h-24 w-full bg-slate-100 rounded-lg overflow-hidden border border-slate-200 relative group">
                           <img
-                            src={co.sightingB.snapshot}
+                            src={getSnapshotUrl(co.sightingB.snapshot)}
                             alt=""
                             className="w-full h-full object-cover"
                           />
@@ -1021,7 +1019,7 @@ export const AccompliceDetection: React.FC = () => {
               <div className="my-5 flex flex-col items-center text-center p-4 bg-slate-50 rounded-2xl border border-slate-200/50 flex-shrink-0">
                 <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-slate-700 shadow-md mb-3">
                   <img
-                    src={selectedNode.snapshot || 'https://via.placeholder.com/150'}
+                    src={getSnapshotUrl(selectedNode.snapshot) || 'https://via.placeholder.com/150'}
                     alt=""
                     className="w-full h-full object-cover"
                   />
@@ -1030,7 +1028,7 @@ export const AccompliceDetection: React.FC = () => {
                 <span
                   className="px-2.5 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-extrabold border bg-slate-100 border-slate-200 text-slate-700"
                 >
-                  {selectedNode.type === 'KNOWN' ? '👤 Missing Person' : '❓ Unknown Recurring'}
+                  {selectedNode.type === 'KNOWN' ? 'Missing Person' : 'Unknown Recurring'}
                 </span>
               </div>
 
@@ -1070,7 +1068,7 @@ export const AccompliceDetection: React.FC = () => {
                           >
                             <div className="flex items-center gap-2 min-w-0">
                               <div className="w-7 h-7 rounded-lg overflow-hidden border border-slate-200 flex-shrink-0">
-                                <img src={peer.snapshot} alt="" className="w-full h-full object-cover" />
+                                <img src={getSnapshotUrl(peer.snapshot)} alt="" className="w-full h-full object-cover" />
                               </div>
                               <span className="text-xs font-bold text-slate-800 truncate">{peer.name}</span>
                             </div>

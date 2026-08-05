@@ -5,6 +5,7 @@
 
 import { Types } from 'mongoose';
 import { UnknownPerson, UnknownPersonStatus } from '../models/UnknownPerson';
+import { Sighting } from '../models/Sighting';
 import { addNotification, broadcastToRole } from './notification.service';
 import { emitUnknownStatusChange } from '../socket/socket';
 import { SystemLog } from '../models/SystemLog';
@@ -223,4 +224,18 @@ export async function processStatusChangeWebhook(data: {
       type: 'info',
     }).catch((err) => console.error('Failed to add notification:', err));
   }
+}
+
+// ─── Delete an unknown person and all associated sightings ────────────────────
+export async function deleteUnknownPerson(unknownId: string) {
+  const person = await UnknownPerson.findOne({ unknownId });
+  if (!person) return null;
+
+  // Clean up all sightings associated with this unknown person
+  await Sighting.deleteMany({ unknownPersonId: person._id });
+
+  // Delete the unknown person document
+  await UnknownPerson.deleteOne({ _id: person._id });
+
+  return person;
 }

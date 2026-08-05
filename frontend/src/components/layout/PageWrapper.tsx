@@ -15,7 +15,7 @@ export const PageWrapper: React.FC<PageWrapperProps> = ({ children }) => {
     '/suspects/chase-map',
     '/zones',
     '/monitoring',
-    '/map'
+    '/detection-map'
   ].includes(location.pathname);
 
   return (

@@ -34,8 +34,10 @@ function fileFilter(
   file: Express.Multer.File,
   cb: multer.FileFilterCallback
 ): void {
-  const allowedMimetypes = ['video/mp4', 'video/avi', 'video/mkv', 'video/mov', 'video/webm'];
-  if (allowedMimetypes.includes(file.mimetype)) {
+  const allowedExts = ['.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv', '.wmv', '.m4v'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  const isVideoMime = file.mimetype.startsWith('video/') || file.mimetype === 'application/octet-stream';
+  if (isVideoMime || allowedExts.includes(ext)) {
     cb(null, true);
   } else {
     cb(new Error('Only video files are allowed (mp4, avi, mkv, mov, webm)'));

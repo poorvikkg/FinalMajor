@@ -24,6 +24,11 @@ const worker = new Worker('video-processing', async (job: Job) => {
 
   const video = await videoRepo.findVideoById(videoId);
   if (!video) throw new Error('Video not found');
+  if (!fs.existsSync(video.path)) {
+    console.error(`[BullMQ] Video file missing on disk: ${video.path}`);
+    await videoRepo.updateVideoStatus(videoId, 'failed');
+    throw new Error(`Video file missing on disk: ${video.path}`);
+  }
 
   try {
     const formData = new FormData();

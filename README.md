@@ -74,45 +74,43 @@ git clone <your-repository-url>
 cd Major
 ```
 
-### 2. Start Infrastructure Services (Docker)
-The project relies on MongoDB, Redis, and MinIO. Start them using Docker Compose:
+### 🚀 Running All Services At Once (Recommended)
+
+You can launch Docker, Backend, AI Service, and Frontend simultaneously with a single command from the project root:
+
+```bash
+python start_all.py
+```
+*(or run `start.bat` / `npm start`)*
+
+---
+
+### Alternative: Running Services Individually
+
+If you prefer running services separately in individual terminals:
+
+#### 1. Start Infrastructure (Docker)
 ```bash
 docker-compose up -d
 ```
-*Note: MinIO console will be available at `http://localhost:9001` (Credentials: `minioadmin` / `minioadmin`).*
 
-### 3. Setup Backend
+#### 2. Backend
 ```bash
 cd backend
-npm install
-```
-Copy `.env.example` to `.env` and fill in the required values (or use defaults for local testing).
-```bash
-cp .env.example .env
 npm run dev
 ```
 
-### 4. Setup AI Service
-Open a new terminal.
+#### 3. AI Service
 ```bash
 cd ai-service
-python -m venv venv
-source venv/Scripts/activate  # On Linux/Mac: source venv/bin/activate
-pip install -r requirements.txt
-```
-Run the FastAPI server:
-```bash
-uvicorn main:app --reload --port 8000
+venv\Scripts\python.exe -m uvicorn main:app --reload --port 8000
 ```
 
-### 5. Setup Frontend
-Open a new terminal.
+#### 4. Frontend
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
-The frontend will start typically on `http://localhost:5173`.
 
 ## 📂 Project Structure & Component Details
 

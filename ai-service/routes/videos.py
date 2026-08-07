@@ -8,6 +8,7 @@ from config.settings import settings
 from typing import Optional
 
 router = APIRouter(prefix="/videos", tags=["Batch Video Processing"])
+# Trigger reload v1.0.1
 
 @router.post("/process", response_model=ProcessVideoResponse)
 async def process_video(
@@ -20,10 +21,12 @@ async def process_video(
     Upload and process a video file in batch to find faces.
     """
     try:
-        if not video.content_type or not video.content_type.startswith('video/'):
+        valid_exts = {'.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv', '.m4v'}
+        ext = os.path.splitext(video.filename)[1].lower() if video.filename else ".mp4"
+        is_video_mime = video.content_type and (video.content_type.startswith('video/') or video.content_type == 'application/octet-stream')
+        if not is_video_mime and ext not in valid_exts:
             raise HTTPException(status_code=400, detail="File must be a video.")
             
-        ext = os.path.splitext(video.filename)[1] if video.filename else ".mp4"
         filename = f"vid_{uuid.uuid4().hex[:8]}{ext}"
         filepath = os.path.join(settings.VIDEOS_DIR, filename)
         

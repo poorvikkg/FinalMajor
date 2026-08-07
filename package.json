@@ -1,0 +1,9 @@
+{
+  "name": "sentinel-major-project",
+  "version": "1.0.0",
+  "description": "Face Recognition & Surveillance Management System - Sentinel",
+  "scripts": {
+    "start": "python start_all.py",
+    "dev": "python start_all.py"
+  }
+}

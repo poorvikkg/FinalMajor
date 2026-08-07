@@ -185,6 +185,10 @@ class RecognitionPipeline:
 
     def _match_target(self, embedding: np.ndarray) -> Optional[Tuple[str, float]]:
         """1:1 cosine similarity against target person's embeddings."""
+        if not self.target_embeddings and self.target_user_id and self.target_user_id != "undefined":
+            self.target_embeddings = [
+                e for e in embedding_cache.get(self.target_user_id) if e.size == 512
+            ]
         if not self.target_embeddings:
             return None
         sims = [

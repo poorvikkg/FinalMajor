@@ -126,7 +126,8 @@ def process_video_file(
         raise ValueError(f"Cannot open video: {video_path}")
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-    pipeline = RecognitionPipeline(camera_id, target_user_id=target_user_id)
+    mode = "target" if (target_user_id and target_user_id != "undefined") else "full_db"
+    pipeline = RecognitionPipeline(camera_id, mode=mode, target_user_id=target_user_id)
 
     # ── Producer thread ──────────────────────────────────────────────────────
     frame_q: "queue.Queue[Optional[tuple]]" = queue.Queue(maxsize=16)

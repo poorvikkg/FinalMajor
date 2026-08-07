@@ -166,43 +166,43 @@ export const GeofenceManager: React.FC = () => {
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    let L: any;
 
-    Promise.all([
-      import('leaflet'),
-      import('leaflet-draw' as any).catch(() => null),
-    ]).then(([LMod]) => {
-      L = LMod;
-      leafletRef.current = L;
-      setLInstance(L);
-      if (mapRef.current) return;
+    import('leaflet').then((mod) => {
+      const LMod = mod.default || mod;
+      (window as any).L = LMod;
+      leafletRef.current = LMod;
+      setLInstance(LMod);
 
-      const map = L.map(mapContainerRef.current!, { center: [12.9141, 74.856], zoom: 13 });
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap © CartoDB', maxZoom: 19,
-      }).addTo(map);
+      import('leaflet-draw' as any).catch(() => null).then(() => {
+        if (mapRef.current) return;
 
-      mapRef.current = map;
-      setMapInstance(map);
+        const map = LMod.map(mapContainerRef.current!, { center: [12.9141, 74.856], zoom: 13 });
+        LMod.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+          attribution: '© OpenStreetMap © CartoDB', maxZoom: 19,
+        }).addTo(map);
 
-      // Polygon draw handler
-      map.on('draw:created', (e: any) => {
-        const layer = e.layer;
-        const latlngs = layer.getLatLngs()[0] as any[];
-        const coords = [...latlngs.map((ll: any) => [ll.lng, ll.lat])];
-        coords.push(coords[0]); // close polygon
+        mapRef.current = map;
+        setMapInstance(map);
 
-        const bounds = layer.getBounds();
-        const center = bounds.getCenter();
+        // Polygon draw handler
+        map.on('draw:created', (e: any) => {
+          const layer = e.layer;
+          const latlngs = layer.getLatLngs()[0] as any[];
+          const coords = [...latlngs.map((ll: any) => [ll.lng, ll.lat])];
+          coords.push(coords[0]); // close polygon
 
-        // Draw as GeoJSON polygon: [[[lng,lat],...]]
-        setPendingZone({
-          coords: [coords],
-          center: { lat: center.lat, lng: center.lng },
+          const bounds = layer.getBounds();
+          const center = bounds.getCenter();
+
+          // Draw as GeoJSON polygon: [[[lng,lat],...]]
+          setPendingZone({
+            coords: [coords],
+            center: { lat: center.lat, lng: center.lng },
+          });
+
+          layer.addTo(map);
+          currentDrawRef.current = layer;
         });
-
-        layer.addTo(map);
-        currentDrawRef.current = layer;
       });
     });
 
@@ -268,6 +268,66 @@ export const GeofenceManager: React.FC = () => {
     });
   }, [zones, mapInstance, LInstance]);
 
+  // Click-to-draw interactive fallback
+  const setupClickToDrawFallback = (shapeType: 'polygon' | 'rectangle') => {
+    if (!mapInstance || !LInstance) return;
+    const L = LInstance;
+    let points: [number, number][] = [];
+
+    const onMapClick = (e: any) => {
+      const { lat, lng } = e.latlng;
+      points.push([lat, lng]);
+
+      if (currentDrawRef.current) {
+        try { currentDrawRef.current.remove(); } catch {}
+      }
+
+      if (shapeType === 'rectangle') {
+        if (points.length === 1) {
+          const marker = L.circleMarker([lat, lng], { radius: 6, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.8 }).addTo(mapInstance);
+          currentDrawRef.current = marker;
+        } else if (points.length >= 2) {
+          const bounds = L.latLngBounds([points[0], points[1]]);
+          const rect = L.rectangle(bounds, { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(mapInstance);
+          currentDrawRef.current = rect;
+
+          const sw = bounds.getSouthWest();
+          const ne = bounds.getNorthEast();
+          const coords = [
+            [sw.lng, sw.lat],
+            [ne.lng, sw.lat],
+            [ne.lng, ne.lat],
+            [sw.lng, ne.lat],
+            [sw.lng, sw.lat],
+          ];
+          const center = bounds.getCenter();
+          setPendingZone({ coords: [coords], center: { lat: center.lat, lng: center.lng } });
+          mapInstance.off('click', onMapClick);
+        }
+      } else {
+        // Polygon click points
+        if (points.length === 1) {
+          const marker = L.circleMarker([lat, lng], { radius: 6, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.8 }).addTo(mapInstance);
+          currentDrawRef.current = marker;
+        } else {
+          const poly = L.polygon(points, { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(mapInstance);
+          currentDrawRef.current = poly;
+
+          if (points.length >= 3) {
+            const coords = points.map((p) => [p[1], p[0]]);
+            coords.push(coords[0]);
+            const bounds = poly.getBounds();
+            const center = bounds.getCenter();
+            setPendingZone({ coords: [coords], center: { lat: center.lat, lng: center.lng } });
+          }
+        }
+      }
+    };
+
+    mapInstance.on('click', onMapClick);
+    activeDrawHandlerRef.current = { disable: () => mapInstance.off('click', onMapClick) };
+  };
+
   // Activate draw mode
   const startDrawing = (shapeType: 'polygon' | 'rectangle') => {
     if (!mapInstance || !LInstance) return;
@@ -286,24 +346,36 @@ export const GeofenceManager: React.FC = () => {
       currentDrawRef.current = null;
     }
 
-    // Use built-in Leaflet draw if available
-    if (shapeType === 'polygon') {
-      if ((L as any).Draw?.Polygon) {
-        const polygon = new (L as any).Draw.Polygon(mapInstance, {
+    const DrawControl = (L as any).Draw || (window as any).L?.Draw;
+
+    if (shapeType === 'polygon' && DrawControl?.Polygon) {
+      try {
+        const polygon = new DrawControl.Polygon(mapInstance, {
           shapeOptions: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 },
         });
         polygon.enable();
         activeDrawHandlerRef.current = polygon;
+        return;
+      } catch (err) {
+        console.warn('Leaflet.Draw polygon init failed, using map click fallback:', err);
       }
-    } else {
-      if ((L as any).Draw?.Rectangle) {
-        const rectangle = new (L as any).Draw.Rectangle(mapInstance, {
+    }
+
+    if (shapeType === 'rectangle' && DrawControl?.Rectangle) {
+      try {
+        const rectangle = new DrawControl.Rectangle(mapInstance, {
           shapeOptions: { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 },
         });
         rectangle.enable();
         activeDrawHandlerRef.current = rectangle;
+        return;
+      } catch (err) {
+        console.warn('Leaflet.Draw rectangle init failed, using map click fallback:', err);
       }
     }
+
+    // Interactive map click drawing fallback
+    setupClickToDrawFallback(shapeType);
   };
 
   const cancelDrawing = () => {

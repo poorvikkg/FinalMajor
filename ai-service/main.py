@@ -99,6 +99,8 @@ async def health_check():
     return {"status": "ok", "message": "AI Service is running"}
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=settings.DEBUG)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=settings.DEBUG)
 

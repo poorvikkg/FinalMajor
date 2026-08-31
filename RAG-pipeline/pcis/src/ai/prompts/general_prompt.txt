@@ -1,0 +1,8 @@
+{system_prompt}
+
+Context Information:
+{context}
+
+User Query: {query}
+
+Provide a detailed answer using only the provided context. If the context does not contain the answer, say so.

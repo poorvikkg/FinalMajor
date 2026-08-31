@@ -1,0 +1,32 @@
+"""Document type and OCR status enumerations."""
+
+from enum import Enum
+
+
+class DocumentType(str, Enum):
+    """Types of case documents."""
+
+    FIR = "FIR"
+    WITNESS_STATEMENT = "WITNESS_STATEMENT"
+    MEDICAL_REPORT = "MEDICAL_REPORT"
+    INVESTIGATION_REPORT = "INVESTIGATION_REPORT"
+    CHARGE_SHEET = "CHARGE_SHEET"
+    CLOSURE_REPORT = "CLOSURE_REPORT"
+    COURT_ORDER = "COURT_ORDER"
+    FORENSIC_REPORT = "FORENSIC_REPORT"
+    POST_MORTEM_REPORT = "POST_MORTEM_REPORT"
+    SUPPLEMENTARY_REPORT = "SUPPLEMENTARY_REPORT"
+    ARREST_MEMO = "ARREST_MEMO"
+    BAIL_ORDER = "BAIL_ORDER"
+    PANCHNAMA = "PANCHNAMA"
+    OTHER = "OTHER"
+
+
+class OCRStatus(str, Enum):
+    """OCR processing status."""
+
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    NOT_APPLICABLE = "NOT_APPLICABLE"

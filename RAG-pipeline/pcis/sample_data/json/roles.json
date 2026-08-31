@@ -1,0 +1,44 @@
+[
+  {
+    "role_id": "ROLE-01",
+    "role_name": "ADMINISTRATOR",
+    "hierarchy_level": 1,
+    "description": "Full System Access"
+  },
+  {
+    "role_id": "ROLE-02",
+    "role_name": "STATION_INCHARGE",
+    "hierarchy_level": 2,
+    "description": "Station Master Access"
+  },
+  {
+    "role_id": "ROLE-03",
+    "role_name": "INVESTIGATING_OFFICER",
+    "hierarchy_level": 3,
+    "description": "Case Officer Access"
+  },
+  {
+    "role_id": "ROLE-04",
+    "role_name": "CONSTABLE",
+    "hierarchy_level": 4,
+    "description": "Read & Log Access"
+  },
+  {
+    "role_id": "ROLE-05",
+    "role_name": "FORENSIC_EXPERT",
+    "hierarchy_level": 3,
+    "description": "Evidence & Report Access"
+  },
+  {
+    "role_id": "ROLE-06",
+    "role_name": "ANALYST",
+    "hierarchy_level": 3,
+    "description": "Intelligence & Analytics Access"
+  },
+  {
+    "role_id": "ROLE-07",
+    "role_name": "AUDITOR",
+    "hierarchy_level": 2,
+    "description": "Compliance & Read-only Access"
+  }
+]

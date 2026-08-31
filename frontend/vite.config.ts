@@ -13,7 +13,12 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Proxy API requests to backend during development
+      // Proxy API requests for RAG to the FastAPI service
+      '/api/v1': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      // Proxy other standard API requests to backend during development
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,

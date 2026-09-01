@@ -26,7 +26,7 @@ async def start_stream(req: StartStreamRequest):
       - target        : 1:1 — only look for one specific person (fastest, most focused)
       - multi_target  : look for a specific list of persons (subset of DB)
     """
-    # Validate mode
+    # Validate requested surveillance mode
     valid_modes = {"full_db", "target", "multi_target"}
     if req.mode not in valid_modes:
         raise HTTPException(
@@ -38,9 +38,11 @@ async def start_stream(req: StartStreamRequest):
     if req.mode == "multi_target" and not req.target_user_ids:
         raise HTTPException(status_code=400, detail="target_user_ids list is required when mode='multi_target'")
 
+    # Ignore request if camera stream is already running
     if req.camera_id in stream_manager.streams and stream_manager.streams[req.camera_id].running:
         return {"status": "ignored", "message": "Stream already running", "camera_id": req.camera_id}
 
+    # Start stream background processing worker
     await stream_manager.start_stream(
         camera_id=req.camera_id,
         rtsp_url=req.rtsp_url,

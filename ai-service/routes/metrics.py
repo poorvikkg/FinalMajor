@@ -1,3 +1,6 @@
+"""
+metrics.py - API routes for system health, model statuses, FAISS index sizes, and clustering metrics.
+"""
 import psutil
 from fastapi import APIRouter
 from config.settings import settings
@@ -5,6 +8,7 @@ from services.model_manager import model_manager
 from services.faiss_manager import faiss_manager
 from cache.embedding_cache import embedding_cache
 
+# API Router for monitoring and diagnostics
 router = APIRouter(tags=["Metrics"])
 
 @router.get("/metrics")

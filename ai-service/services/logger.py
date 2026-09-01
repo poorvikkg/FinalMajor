@@ -1,8 +1,12 @@
+"""
+logger.py - Logging configuration and utility handlers for system, camera, recognition, and errors.
+"""
 import logging
 import os
 from config.settings import settings
 
 def get_logger(name: str, log_file: str = "system.log"):
+    """Create or retrieve a configured logger with console and rotating file output."""
     logger = logging.getLogger(name)
     if not logger.handlers:
         logger.setLevel(logging.DEBUG if settings.DEBUG else logging.INFO)

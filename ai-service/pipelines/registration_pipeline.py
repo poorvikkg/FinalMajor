@@ -1,3 +1,8 @@
+"""
+registration_pipeline.py - Pipeline for single and multi-photo face registration.
+Processes image inputs, detects single faces, extracts and computes normalized composite ArcFace embeddings,
+and persists embeddings to MongoDB, RAM cache, and the FAISS vector index.
+"""
 import cv2
 import numpy as np
 import faiss
@@ -16,8 +21,8 @@ from bson import ObjectId
 
 logger = logging.getLogger(__name__)
 
-
 class RegistrationError(Exception):
+    """Custom exception raised when face registration fails validation."""
     pass
 
 

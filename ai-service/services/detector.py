@@ -1,3 +1,7 @@
+"""
+detector.py - SCRFD Face Detection Service.
+Performs multi-scale face detection, landmark/keypoint extraction, anchor decoding, and Non-Maximum Suppression (NMS).
+"""
 import cv2
 import numpy as np
 from services.model_manager import model_manager
@@ -5,6 +9,7 @@ from config.settings import settings
 from services.logger import sys_logger, err_logger
 
 class FaceDetector:
+    """Singleton wrapper around the SCRFD ONNX face detector session."""
     _instance = None
     
     def __new__(cls):
@@ -14,12 +19,17 @@ class FaceDetector:
 
     @property
     def session(self):
+        """Get active ONNX runtime session for detector."""
         try:
             return model_manager.get_session("detector")
         except ValueError:
             return None
 
     def detect(self, img: np.ndarray, threshold: float = settings.DETECTION_THRESHOLD):
+        """
+        Detect faces in the input image.
+        Returns: (final_bboxes: [x1, y1, x2, y2, score], final_kpss: [5, 2])
+        """
         sess = self.session
         if sess is None:
             err_logger.error("Detector session is None. Cannot detect faces.")

@@ -1,3 +1,6 @@
+"""
+test_faiss.py - Test script to verify loading MongoDB embeddings into RAM and querying the FAISS index.
+"""
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 import numpy as np

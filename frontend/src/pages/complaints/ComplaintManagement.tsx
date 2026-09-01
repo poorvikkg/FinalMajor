@@ -332,7 +332,9 @@ export const ComplaintManagement: React.FC = () => {
         <div>
           <h1 className="text-xl font-black text-slate-900 uppercase tracking-widest">Missing Person Reports</h1>
         </div>
-        <Button onClick={() => navigate('/file-case')}>New Report</Button>
+        {user?.role === 'station' && (
+          <Button onClick={() => navigate('/file-case')}>New Report</Button>
+        )}
       </div>
 
       <Input

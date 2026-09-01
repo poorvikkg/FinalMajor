@@ -186,7 +186,7 @@ def process_video_file(
                 "is_unknown":    is_unknown,
                 "snap_key":      snap_key,
                 "snapshot_path": None,
-                "embedding":     res.get("embedding") if is_unknown else None,
+                "embedding":     res.get("embedding"),
                 "quality":       res.get("quality"),
             })
 
@@ -227,7 +227,7 @@ def process_video_file(
             target_embs = embedding_cache.get(target_user_id)
             if target_embs:
                 sims = [_cosine_similarity(emb, e) for e in target_embs if e.size == 512]
-                if sims and max(sims) >= 0.20:
+                if sims and max(sims) >= 0.25:
                     track_known_map[tid] = target_user_id
                     continue
 
@@ -241,11 +241,11 @@ def process_video_file(
                     best_known_sim = sim
                     best_known_uid = uid
 
-        if best_known_uid and best_known_sim >= 0.25:
+        if best_known_uid and best_known_sim >= 0.28:
             track_known_map[tid] = best_known_uid
             continue
 
-        match = faiss_manager.search(emb, threshold=0.25)
+        match = faiss_manager.search(emb, threshold=0.28)
         if match:
             known_uid, _ = match
             track_known_map[tid] = known_uid
@@ -256,7 +256,7 @@ def process_video_file(
             for entry in timeline:
                 track_known_map[entry["track_id"]] = target_user_id
 
-    # 4. Intra-video Unknown Face Clustering: Group all unassigned unknown tracks that belong to the same person
+    # 4. Intra-video Unknown Face Clustering: Group all unassigned unknown tracks into at most 1 cluster per person
     unknown_clusters: list = [] # list of {"id": str, "embedding": np.ndarray, "tracks": set()}
     cluster_counter = 0
 
@@ -268,7 +268,7 @@ def process_video_file(
         best_sim = 0.0
         for cluster in unknown_clusters:
             sim = _cosine_similarity(emb, cluster["embedding"])
-            if sim > best_sim and sim >= 0.35: # Intra-video same-person cosine similarity threshold
+            if sim > best_sim and sim >= 0.30: # Intra-video same-person cosine similarity threshold
                 best_sim = sim
                 assigned_cluster = cluster
 
@@ -290,7 +290,7 @@ def process_video_file(
             })
             track_known_map[tid] = cid
 
-    # 4.5 Fallback for any tracks without embeddings
+    # 4.5 Fallback for any tracks without embeddings: map to first unknown cluster
     for entry in timeline:
         tid = entry.get("track_id")
         if tid is not None and tid not in track_known_map:
@@ -310,6 +310,16 @@ def process_video_file(
             entry["is_unknown"] = is_unresolved
             entry["user_id"] = "unknown" if is_unresolved else resolved_id
             entry["cluster_key"] = resolved_id
+            if not is_unresolved:
+                # If matched to a known person, assign the confidence of match
+                best_sim = 0.0
+                target_embs = embedding_cache.get(resolved_id)
+                if tid in track_embeddings and target_embs:
+                    sims = [_cosine_similarity(track_embeddings[tid], e) for e in target_embs]
+                    if sims:
+                        best_sim = max(sims)
+                if best_sim > 0:
+                    entry["confidence"] = round(best_sim, 4)
 
     # 6. Remap best_crops keys by resolved cluster/person so we get only ONE best snapshot per unique person
     remapped_best_crops = {}
@@ -331,7 +341,7 @@ def process_video_file(
 
     saved = _save_best_snapshot({k: v[:2] for k, v in remapped_best_crops.items()})
 
-    # 7. Group timeline entries by resolved person/cluster, keeping ONE highest quality entry per person
+    # 7. Group timeline entries by resolved person/cluster, keeping EXACTLY ONE highest quality entry per person
     grouped_entries: dict = {}
     for entry in timeline:
         tid = entry.get("track_id")
@@ -349,7 +359,7 @@ def process_video_file(
 
     final_timeline = list(grouped_entries.values())
 
-    # 8. If target person is identified, filter out any residual unknown entries
+    # 8. If known person is identified, filter out any residual unknown entries
     if any(not e.get("is_unknown") for e in final_timeline):
         final_timeline = [e for e in final_timeline if not e.get("is_unknown")]
 

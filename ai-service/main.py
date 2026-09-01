@@ -14,6 +14,7 @@ from services.unknown_person_manager import unknown_person_manager
 # MongoDB Global Client
 db_client = None
 
+# Trigger reload: sync embeddings & unknown clustering v2.0.0
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # --- STARTUP ---
@@ -81,6 +82,7 @@ async def lifespan(app: FastAPI):
     sys_logger.info("Shutdown complete.")
 
 from routes import registration, streams, videos, metrics
+from rag.routers import rag_routes
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -93,6 +95,8 @@ app.include_router(registration.router)
 app.include_router(streams.router)
 app.include_router(videos.router)
 app.include_router(metrics.router)
+app.include_router(rag_routes.router, prefix="/api/v1")
+app.include_router(rag_routes.router) # also mount directly at /ai/*
 
 @app.get("/health")
 async def health_check():

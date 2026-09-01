@@ -54,8 +54,17 @@ class Settings(BaseSettings):
     UNKNOWN_SNAPSHOTS_DIR: str = os.path.join(BASE_DIR, "..", "backend", "uploads", "unknown_snapshots")
     UNKNOWN_MONGODB_COLLECTION: str = "unknownpersons"
     
+    # ── AI RAG Pipeline ──────────────────────────────────
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
+    RAG_DATA_DIR: str = os.path.join(BASE_DIR, "rag", "data", "crime_statistics")
+    RAG_FAISS_DIR: str = os.path.join(BASE_DIR, "rag", "vectorstore", "storage")
+    TOP_K: int = 5
+    LLM_TIMEOUT_SECONDS: int = 60
+
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()
 

@@ -6,7 +6,6 @@ import { PageWrapper } from '../components/layout/PageWrapper';
 // Pages
 import { Login } from '../pages/auth/Login';
 import { Register } from '../pages/auth/Register';
-import { CommandCenter } from '../pages/dashboard/CommandCenter';
 import { LiveMonitoring } from '../pages/monitoring/LiveMonitoring';
 import { CameraManagement } from '../pages/cameras/CameraManagement';
 import { RecognitionLogs } from '../pages/logs/RecognitionLogs';
@@ -22,11 +21,9 @@ import { SuspectChaseMap } from '../pages/suspects/SuspectChaseMap';
 import { SuspectAlertList } from '../pages/suspects/SuspectAlertList';
 import { ThreatLeaderboard } from '../pages/analytics/ThreatLeaderboard';
 import { AccompliceDetection } from '../pages/analytics/AccompliceDetection';
-import { GeofenceManager } from '../pages/zones/GeofenceManager';
 import { SuspectTimeline } from '../pages/suspects/SuspectTimeline';
 import { RagChat } from '../pages/rag/RagChat';
 import { RagDataImport } from '../pages/rag/RagDataImport';
-import { RagDashboard } from '../pages/rag/RagDashboard';
 
 interface ProtectedProps {
   children: React.ReactElement;
@@ -62,12 +59,12 @@ export const AppRouter: React.FC = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Root: admin → CommandCenter, station/viewer → complaints */}
+        {/* Root: admin → Live Monitoring, station/viewer → complaints */}
         <Route
           path="/"
           element={
             <ProtectedRoute allowedRoles={['admin']}>
-              <CommandCenter />
+              <Navigate to="/monitoring" replace />
             </ProtectedRoute>
           }
         />
@@ -161,14 +158,6 @@ export const AppRouter: React.FC = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/zones"
-          element={
-            <ProtectedRoute allowedRoles={['admin']}>
-              <GeofenceManager />
-            </ProtectedRoute>
-          }
-        />
         <Route path="/suspects" element={<Navigate to="/suspects/alerts" replace />} />
         <Route
           path="/analyse"
@@ -212,14 +201,6 @@ export const AppRouter: React.FC = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/rag/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={['admin', 'station', 'viewer']}>
-              <RagDashboard />
-            </ProtectedRoute>
-          }
-        />
         <Route path="/chat" element={<Navigate to="/rag/chat" replace />} />
         <Route path="/import" element={<Navigate to="/rag/import" replace />} />
 
@@ -235,7 +216,7 @@ export const AppRouter: React.FC = () => {
         <Route
           path="/file-case"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'station', 'viewer']}>
+            <ProtectedRoute allowedRoles={['station']}>
               <FileCase />
             </ProtectedRoute>
           }

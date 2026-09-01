@@ -1,0 +1,12 @@
+{system_prompt}
+
+Context Information:
+{context}
+
+User Query: {query}
+
+Instructions:
+- Provide an informative, structured answer using the provided active database records and statistical context.
+- If the user asks about recent FIRs, complaints, or case counts, summarize the active case files and complaints retrieved from the database.
+- If historical crime datasets are present in context, highlight the relevant figures, trends, or state/district data.
+- Structure your response cleanly using markdown bullet points and bold headers.

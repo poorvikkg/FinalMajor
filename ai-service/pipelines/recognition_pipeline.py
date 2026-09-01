@@ -180,8 +180,25 @@ class RecognitionPipeline:
     # ── Match logic ───────────────────────────────────────────────────────────
 
     def _match_full_db(self, embedding: np.ndarray) -> Optional[Tuple[str, float]]:
-        """1:N search across entire FAISS index."""
-        return faiss_manager.search(embedding, threshold=settings.RECOGNITION_THRESHOLD)
+        """1:N search across entire FAISS index + RAM embedding cache fallback."""
+        thresh = settings.RECOGNITION_THRESHOLD
+        # 1. FAISS index search
+        faiss_match = faiss_manager.search(embedding, threshold=thresh)
+        if faiss_match:
+            return faiss_match
+
+        # 2. Direct RAM cache search across all registered complaints
+        best_uid, best_sim = None, -1.0
+        for uid, embs in embedding_cache.embeddings.items():
+            for e in embs:
+                sim = _cosine_similarity(embedding, e)
+                if sim > best_sim:
+                    best_sim, best_uid = sim, uid
+
+        if best_uid and best_sim >= thresh:
+            return (best_uid, best_sim)
+
+        return None
 
     def _match_target(self, embedding: np.ndarray) -> Optional[Tuple[str, float]]:
         """1:1 cosine similarity against target person's embeddings."""
@@ -236,13 +253,13 @@ class RecognitionPipeline:
     ) -> Optional[Dict]:
         """
         Update the vote state for a track. Returns a confirmed result dict
-        if VOTE_FRAMES matching votes have accumulated (or if a single high-confidence match >= 0.45 occurs).
+        if VOTE_FRAMES matching votes have accumulated (or if a single high-confidence match occurs).
         """
         state = self._vote_state[track_id]
         frames_since_last = self._frame_idx - state["last_frame"]
 
-        # If a single match is high confidence (>= 0.45), confirm immediately
-        if candidate_uid != "unknown" and confidence >= 0.45:
+        # If a single match meets recognition threshold, confirm immediately
+        if candidate_uid != "unknown" and confidence >= settings.RECOGNITION_THRESHOLD:
             state["user_id"] = candidate_uid
             state["votes"] = VOTE_FRAMES
             state["confidences"] = [confidence]
@@ -393,7 +410,7 @@ class RecognitionPipeline:
                     "confirmed":  True,
                     "snapshot":   snapshot,
                     "quality":    quality_score,
-                    "embedding":  embedding.tolist() if user_id == "unknown" else None,
+                    "embedding":  embedding.tolist(),
                 })
             else:
                 # Pending votes — emit as a tentative result (no alert yet)
@@ -409,6 +426,7 @@ class RecognitionPipeline:
                     "vote_progress": f"{vote_count}/{VOTE_FRAMES}",
                     "snapshot":   None,
                     "quality":    quality_score,
+                    "embedding":  embedding.tolist(),
                 })
 
         elapsed = time.time() - t0

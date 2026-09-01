@@ -239,7 +239,7 @@ export const SightingMap: React.FC<SightingMapProps> = ({
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   return (
-    <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-xs" style={{ height }}>
+    <div className="relative rounded-2xl overflow-hidden border border-slate-200/90 shadow-sm" style={{ height }}>
       <MapContainer
         center={[12.9141, 74.856]}
         zoom={12}

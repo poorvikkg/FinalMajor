@@ -15,7 +15,6 @@ export const PageWrapper: React.FC<PageWrapperProps> = ({ children }) => {
   // Full-screen pages that should not have page padding or max-width limits
   const isFullScreenPage = [
     '/suspects/chase-map',
-    '/zones',
     '/monitoring',
     '/detection-map'
   ].includes(location.pathname);

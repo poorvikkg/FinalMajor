@@ -20,6 +20,7 @@ import sightingRoutes from './sighting.routes';
 import suspectAlertRoutes from './suspectAlert.routes';
 import analyticsRoutes from './analytics.routes';
 import zoneRoutes from './zone.routes';
+import aiRoutes from './ai.routes';
 
 const router = Router();
 
@@ -51,5 +52,8 @@ router.use('/analytics', analyticsRoutes);
 
 // Geofence Zones
 router.use('/zones', zoneRoutes);
+
+// AI Intelligence & RAG Knowledge Engine
+router.use('/ai', aiRoutes);
 
 export default router;

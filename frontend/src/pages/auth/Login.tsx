@@ -33,11 +33,15 @@ export const Login: React.FC = () => {
   };
 
   const handleSkipLogin = () => {
-    const mockUser = {
+    const mockUser: any = {
+      _id: 'mock-admin-id',
       id: 'mock-admin-id',
       name: 'Admin User (Offline)',
       email: 'admin@sentinel.com',
-      role: 'admin'
+      role: 'admin',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     const mockToken = 'mock-jwt-token';
     setAuth(mockUser, mockToken);

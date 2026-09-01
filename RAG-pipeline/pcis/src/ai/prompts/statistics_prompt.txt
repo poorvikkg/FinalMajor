@@ -1,9 +1,0 @@
-{system_prompt}
-
-Context Information:
-{context}
-
-User Query: {query}
-
-The user is asking for statistical analysis. Using the provided context, give a precise numeric or trend-based answer.
-Cite the source dataset and year where possible. Format numbers clearly. If the context lacks exact figures, say so.

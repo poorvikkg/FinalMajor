@@ -66,9 +66,19 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-sm px-6 flex items-center justify-between">
-      {/* Spacer */}
-      <div />
+    <header className="h-16 sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-6 flex items-center justify-between shadow-xs">
+      {/* Left Telemetry Status */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-100/80 border border-slate-200/80 text-[11px] font-mono text-slate-700">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="font-semibold text-slate-800">SYSTEM ACTIVE</span>
+          <span className="text-slate-300">|</span>
+          <span className="text-slate-500 font-normal">AI INFERENCE READY</span>
+        </div>
+      </div>
 
       {/* Right controls */}
       <div className="flex items-center gap-4">

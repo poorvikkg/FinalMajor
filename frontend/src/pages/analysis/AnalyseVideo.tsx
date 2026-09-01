@@ -3,7 +3,7 @@
  * Unified video management and analysis workspace.
  * Allows uploading new recordings for automatic AI analysis and reviewing results of past videos.
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -149,7 +149,23 @@ export const AnalyseVideo: React.FC = () => {
 
   const logs = logsData?.data || [];
   const identified = logs.filter(l => !l.isUnknown);
-  const unknown = logs.filter(l => l.isUnknown);
+  
+  // Deduplicate unknown detections so the same unidentified subject is only shown once
+  const unknown = useMemo(() => {
+    const rawUnknown = logs.filter(l => l.isUnknown);
+    const seen = new Set<string>();
+    const result: RecognitionLog[] = [];
+    for (const item of rawUnknown) {
+      // If identified subjects were already found, don't show spurious unknown frames
+      if (identified.length > 0) continue;
+      const key = item.snapshot ? item.snapshot.split('_')[1] || item.snapshot : item._id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(item);
+      }
+    }
+    return result;
+  }, [logs, identified]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -581,7 +597,7 @@ export const AnalyseVideo: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {unknown.map(log => (
+                  {unknown.map((log: RecognitionLog) => (
                     <div key={log._id} className="border border-slate-200 rounded-xl p-2.5 text-center bg-white space-y-1.5 shadow-xs">
                       {log.snapshot ? (
                         <img src={getSnapshotUrl(log.snapshot)} alt="Unknown Face" className="w-full aspect-square object-cover rounded-lg border border-slate-100" />
@@ -603,8 +619,8 @@ export const AnalyseVideo: React.FC = () => {
             <Button variant="outline" onClick={() => setViewState('list')}>
               Close Results
             </Button>
-            <Button onClick={() => window.location.href = '/file-case'}>
-              File a Case Report
+            <Button onClick={() => window.location.href = '/complaints'}>
+              View Complaints
             </Button>
           </div>
         </div>

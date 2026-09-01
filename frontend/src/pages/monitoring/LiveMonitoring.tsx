@@ -304,9 +304,6 @@ export const LiveMonitoring: React.FC = () => {
                 </div>
               )}
 
-              <p className="text-xs text-slate-500 mt-2">
-                Choose whether the AI should flag anyone in the database, or only track a specific target.
-              </p>
               {/* Apply Button */}
               <div className="mt-4">
                 <Button 

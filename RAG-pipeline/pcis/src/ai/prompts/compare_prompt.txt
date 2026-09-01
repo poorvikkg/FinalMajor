@@ -1,0 +1,11 @@
+{system_prompt}
+
+Context Information:
+{context}
+
+User Query: {query}
+
+The user wants to compare two or more regions, time periods, or crime categories.
+Structure your answer as a clear comparison table or side-by-side analysis.
+Highlight similarities, differences, and key insights from the data.
+Always cite the source dataset name and year for each data point.

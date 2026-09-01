@@ -1,0 +1,51 @@
+# =============================================================================
+# PCIS - Police Case Intelligence System - Dependencies
+# =============================================================================
+
+# Web Framework
+fastapi
+uvicorn[standard]==0.30.6
+
+# MongoDB
+motor
+pymongo
+
+# Data Validation
+pydantic
+pydantic-settings
+email-validator==2.2.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+
+# Utilities
+python-dotenv==1.0.1
+python-dateutil==2.9.0
+
+# Logging
+structlog==24.4.0
+
+# Data Ingestion
+pandas
+openpyxl==3.1.5
+
+# Testing
+pytest==8.3.2
+pytest-asyncio==0.23.8
+httpx==0.27.0
+
+# Development
+black==24.8.0
+ruff==0.6.3
+
+# AI & RAG Pipeline
+langchain
+langgraph
+langchain-groq
+langchain-huggingface
+langchain-community
+faiss-cpu
+sentence-transformers
+pyarrow

@@ -16,6 +16,9 @@ import {
   Zap,
   Network,
   Layers,
+  Bot,
+  Database,
+  Brain,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
@@ -32,8 +35,11 @@ export const Sidebar: React.FC = () => {
       ]
     },
     {
-      title: 'Intelligence',
+      title: 'Intelligence & RAG',
       items: [
+        { to: '/rag/chat', label: 'RAG AI Assistant', icon: Bot, roles: ['admin', 'station'] },
+        { to: '/rag/import', label: 'RAG Data Import', icon: Database, roles: ['admin', 'station'] },
+        { to: '/rag/dashboard', label: 'RAG Analytics', icon: Brain, roles: ['admin', 'station'] },
         { to: '/suspects/chase-map', label: 'Chase Map', icon: Radio, roles: ['admin'] },
         { to: '/analytics/threats', label: 'Threat Board', icon: Zap, roles: ['admin'] },
         { to: '/analytics/accomplices', label: 'Accomplice Engine', icon: Network, roles: ['admin'] },

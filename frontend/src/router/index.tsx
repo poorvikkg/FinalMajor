@@ -24,6 +24,9 @@ import { ThreatLeaderboard } from '../pages/analytics/ThreatLeaderboard';
 import { AccompliceDetection } from '../pages/analytics/AccompliceDetection';
 import { GeofenceManager } from '../pages/zones/GeofenceManager';
 import { SuspectTimeline } from '../pages/suspects/SuspectTimeline';
+import { RagChat } from '../pages/rag/RagChat';
+import { RagDataImport } from '../pages/rag/RagDataImport';
+import { RagDashboard } from '../pages/rag/RagDashboard';
 
 interface ProtectedProps {
   children: React.ReactElement;
@@ -191,6 +194,34 @@ export const AppRouter: React.FC = () => {
             </ProtectedRoute>
           }
         />
+
+        {/* RAG Intelligence Routes */}
+        <Route
+          path="/rag/chat"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'station', 'viewer']}>
+              <RagChat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rag/import"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'station', 'viewer']}>
+              <RagDataImport />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/rag/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={['admin', 'station', 'viewer']}>
+              <RagDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/chat" element={<Navigate to="/rag/chat" replace />} />
+        <Route path="/import" element={<Navigate to="/rag/import" replace />} />
 
         {/* Viewer + Admin + Station */}
         <Route

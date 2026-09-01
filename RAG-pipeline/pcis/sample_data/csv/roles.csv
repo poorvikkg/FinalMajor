@@ -1,0 +1,8 @@
+role_id,role_name,hierarchy_level,description
+ROLE-01,ADMINISTRATOR,1,Full System Access
+ROLE-02,STATION_INCHARGE,2,Station Master Access
+ROLE-03,INVESTIGATING_OFFICER,3,Case Officer Access
+ROLE-04,CONSTABLE,4,Read & Log Access
+ROLE-05,FORENSIC_EXPERT,3,Evidence & Report Access
+ROLE-06,ANALYST,3,Intelligence & Analytics Access
+ROLE-07,AUDITOR,2,Compliance & Read-only Access

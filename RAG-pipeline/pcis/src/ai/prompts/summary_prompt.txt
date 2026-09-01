@@ -1,0 +1,10 @@
+{system_prompt}
+
+Context Information:
+{context}
+
+User Query: {query}
+
+The user wants a summary. Using the provided context, produce a concise, well-structured summary.
+Use bullet points where appropriate. Highlight key facts such as case status, crime type, persons involved, and timeline.
+Do not invent details not present in the context.

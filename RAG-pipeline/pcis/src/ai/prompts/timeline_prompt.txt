@@ -1,0 +1,10 @@
+{system_prompt}
+
+Context Information:
+{context}
+
+User Query: {query}
+
+The user wants to understand trends over time. Using the provided context, identify patterns, increases, decreases, or anomalies across the years present in the data.
+Present the findings in chronological order. Use simple language and highlight the most significant turning points.
+Always cite the source dataset and the specific years being referenced.

@@ -1,13 +1,19 @@
+"""
+debug_mongo.py - Debug utility to check MongoDB complaint records and validate searchVector embeddings.
+"""
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 
 async def main():
+    # Connect to local MongoDB instance
     client = AsyncIOMotorClient('mongodb://localhost:27017')
     db = client['surveillance_db']
     
+    # Retrieve and inspect registered complaints
     complaints = await db.complaints.find({}).to_list(100)
     print(f"Total Complaints in DB: {len(complaints)}")
     
+    # Iterate through complaints and verify searchVector embedding validity
     for c in complaints:
         cid = str(c['_id'])
         name = c.get('missingPersonName') or c.get('name') or 'Unnamed'

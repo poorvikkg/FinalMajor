@@ -1,3 +1,6 @@
+"""
+videos.py - API routes for batch video file upload and face detection/recognition processing.
+"""
 import os
 import uuid
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
@@ -8,7 +11,6 @@ from config.settings import settings
 from typing import Optional
 
 router = APIRouter(prefix="/videos", tags=["Batch Video Processing"])
-# Trigger reload v1.0.1
 
 @router.post("/process", response_model=ProcessVideoResponse)
 async def process_video(

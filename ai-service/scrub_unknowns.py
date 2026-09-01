@@ -1,9 +1,14 @@
+"""
+scrub_unknowns.py - Maintenance utility to scrub anonymous/unknown identities that actually match
+registered target persons (e.g. from complaints), deleting spurious unknown records.
+"""
 import asyncio
 import numpy as np
 import faiss
 from motor.motor_asyncio import AsyncIOMotorClient
 
 def _cosine_similarity(v1: np.ndarray, v2: np.ndarray) -> float:
+    """Calculate cosine similarity between two feature vectors."""
     n1 = np.linalg.norm(v1)
     n2 = np.linalg.norm(v2)
     if n1 < 1e-6 or n2 < 1e-6:
@@ -11,6 +16,7 @@ def _cosine_similarity(v1: np.ndarray, v2: np.ndarray) -> float:
     return float(np.dot(v1, v2) / (n1 * n2))
 
 async def main():
+    # Connect to MongoDB database
     client = AsyncIOMotorClient('mongodb://localhost:27017')
     db = client['surveillance_db']
     

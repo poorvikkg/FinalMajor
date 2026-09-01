@@ -58,6 +58,7 @@ class StreamState:
 
 
 class LiveStreamManager:
+    """Manages concurrent live video streams, background recognition tasks, and health reporting."""
     def __init__(self):
         # { camera_id: StreamState }
         self.streams: Dict[str, StreamState] = {}

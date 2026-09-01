@@ -22,11 +22,13 @@ from pipelines.registration_pipeline import register_user_batch, RegistrationErr
 MONGO_URI = settings.MONGODB_URI
 
 async def reregister_missing_embeddings():
+    # 1. Load and warm up face detection and recognition ONNX models
     print("Loading AI Models...")
     model_manager.load_model("detector", settings.DETECTOR_MODEL_PATH)
     model_manager.load_model("recognizer", settings.RECOGNIZER_MODEL_PATH)
     model_manager.warm_up()
 
+    # 2. Connect to MongoDB and find complaints with missing embeddings
     db = AsyncIOMotorClient(MONGO_URI).get_default_database()
     
     # Find all complaints without a proper searchVector

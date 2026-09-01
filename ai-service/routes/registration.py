@@ -1,3 +1,6 @@
+"""
+registration.py - API routes for single and batch facial image registration.
+"""
 from typing import List
 from fastapi import APIRouter, File, UploadFile, Form, HTTPException
 from schemas.api_schemas import RegisterUserResponse, BatchRegisterUserResponse

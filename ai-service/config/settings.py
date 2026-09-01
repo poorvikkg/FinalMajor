@@ -1,3 +1,7 @@
+"""
+settings.py - Centralized configuration and environment settings for the AI service.
+Defines model paths, processing thresholds, FAISS index directories, and database parameters.
+"""
 import os
 from pydantic_settings import BaseSettings
 

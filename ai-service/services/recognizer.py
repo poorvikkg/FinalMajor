@@ -1,9 +1,14 @@
+"""
+recognizer.py - ArcFace (w600k_r50) Feature Embedding Extraction Service.
+Extracts 512-dimensional L2-normalized feature vectors from aligned 112x112 facial images.
+"""
 import cv2
 import numpy as np
 from services.model_manager import model_manager
 from services.logger import sys_logger, err_logger
 
 class FaceRecognizer:
+    """Singleton wrapper around the ArcFace feature extractor ONNX session."""
     _instance = None
     
     def __new__(cls):
@@ -13,12 +18,20 @@ class FaceRecognizer:
 
     @property
     def session(self):
+        """Get active ONNX runtime session for recognizer."""
         try:
             return model_manager.get_session("recognizer")
         except ValueError:
             return None
 
     def get_embedding(self, aligned_face: np.ndarray) -> np.ndarray:
+        """
+        Generate 512-dimensional normalized embedding for aligned face image.
+        Args:
+            aligned_face: 112x112 BGR facial crop
+        Returns:
+            512-dim float32 L2-normalized numpy array
+        """
         sess = self.session
         if sess is None:
             err_logger.error("Recognizer session is None. Cannot generate embedding.")

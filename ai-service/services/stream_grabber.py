@@ -28,6 +28,7 @@ class ThreadedVideoStream:
             self.grabbed, self.frame = self.stream.read()
 
     def start(self):
+        """Start the background frame consumer thread."""
         self.stopped = False
         self.thread = threading.Thread(target=self.update, args=(), name=f"Grabber-{self.src}")
         self.thread.daemon = True
@@ -35,6 +36,7 @@ class ThreadedVideoStream:
         return self
 
     def update(self):
+        """Continuously grab the latest frame in a worker thread."""
         while not self.stopped:
             if not self.stream.isOpened():
                 self.grabbed = False
@@ -55,13 +57,16 @@ class ThreadedVideoStream:
             time.sleep(0.002)
 
     def read(self):
+        """Return the most recently grabbed frame and success status."""
         with self.lock:
             return self.grabbed, self.frame
 
     def isOpened(self):
+        """Check if underlying video capture stream is open."""
         return self.stream.isOpened()
 
     def release(self):
+        """Stop thread and release video stream resources."""
         self.stopped = True
         if self.thread:
             self.thread.join(timeout=1.0)

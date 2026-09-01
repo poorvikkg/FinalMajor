@@ -1,3 +1,6 @@
+"""
+test_register_and_match.py - End-to-end test script to register a face image batch and verify FAISS matching.
+"""
 import asyncio
 import cv2
 import numpy as np

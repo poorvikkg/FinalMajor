@@ -62,11 +62,13 @@ class ModelManager:
             raise
 
     def get_session(self, name: str) -> ort.InferenceSession:
+        """Retrieve loaded ONNX session by model name."""
         if name not in self.sessions:
             raise ValueError(f"Model '{name}' not loaded.")
         return self.sessions[name]['session']
 
     def get_status(self):
+        """Return provider status for all loaded ONNX models."""
         return {n: info['provider'] for n, info in self.sessions.items()}
 
     def warm_up(self):

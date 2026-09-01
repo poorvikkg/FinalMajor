@@ -1,7 +1,12 @@
+"""
+check_db.py - Diagnostic script to inspect stored MongoDB complaints and recognition logs.
+Prints summary of registered search vectors and recent recognition events.
+"""
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 
 async def main():
+    # Connect to surveillance MongoDB database
     db = AsyncIOMotorClient('mongodb://localhost:27017')['surveillance_db']
     
     # Check complaints with embeddings

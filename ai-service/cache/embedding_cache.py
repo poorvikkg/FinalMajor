@@ -1,3 +1,6 @@
+"""
+embedding_cache.py - In-memory RAM cache for known face embeddings.
+"""
 import numpy as np
 from typing import Dict, List, Tuple
 import logging
@@ -19,21 +22,25 @@ class EmbeddingCache:
         return cls._instance
         
     def add(self, user_id: str, embedding: np.ndarray):
+        """Add an embedding array for the given user ID to the cache."""
         if user_id not in self.embeddings:
             self.embeddings[user_id] = []
         self.embeddings[user_id].append(embedding.astype(np.float32))
         self.total_count += 1
         
     def get(self, user_id: str) -> List[np.ndarray]:
+        """Retrieve the list of cached embeddings for a user ID."""
         return self.embeddings.get(user_id, [])
         
     def remove(self, user_id: str):
+        """Remove all cached embeddings associated with a user ID."""
         if user_id in self.embeddings:
             count = len(self.embeddings[user_id])
             del self.embeddings[user_id]
             self.total_count -= count
             
     def clear(self):
+        """Clear all cached embeddings from memory."""
         self.embeddings.clear()
         self.total_count = 0
         

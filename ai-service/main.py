@@ -1,3 +1,10 @@
+"""
+main.py - Entry point for the Surveillance AI Inference Service.
+
+Initializes the FastAPI application, manages startup/shutdown lifecycle events,
+synchronizes MongoDB face embeddings into in-memory FAISS indices, loads ONNX models,
+and mounts API routers for registration, streams, video processing, and metrics.
+"""
 import asyncio
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
@@ -11,12 +18,12 @@ from cache.embedding_cache import embedding_cache
 from services.faiss_manager import faiss_manager
 from services.unknown_person_manager import unknown_person_manager
 
-# MongoDB Global Client
+# MongoDB Global Client instance
 db_client = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- STARTUP ---
+    # --- STARTUP LIFECYCLE ---
     sys_logger.info("Starting AI Service Initialization...")
     
     # 1. Connect MongoDB
@@ -80,8 +87,10 @@ async def lifespan(app: FastAPI):
         
     sys_logger.info("Shutdown complete.")
 
+# Import API sub-routers
 from routes import registration, streams, videos, metrics
 
+# Initialize FastAPI application with metadata and lifecycle management
 app = FastAPI(
     title=settings.APP_NAME,
     description="High-performance Face Recognition & Surveillance Inference Service",
@@ -89,6 +98,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Register route modules with the application
 app.include_router(registration.router)
 app.include_router(streams.router)
 app.include_router(videos.router)
@@ -96,9 +106,11 @@ app.include_router(metrics.router)
 
 @app.get("/health")
 async def health_check():
+    """Health check endpoint to verify AI service status."""
     return {"status": "ok", "message": "AI Service is running"}
 
 if __name__ == "__main__":
+    # Run uvicorn server directly when executing script
     import os
     import uvicorn
     port = int(os.getenv("PORT", 8000))

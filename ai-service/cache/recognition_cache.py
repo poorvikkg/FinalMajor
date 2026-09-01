@@ -1,3 +1,6 @@
+"""
+recognition_cache.py - TTL cache for active track recognition results to avoid redundant model inference.
+"""
 import time
 from cachetools import TTLCache
 from config.settings import settings
@@ -31,6 +34,7 @@ class RecognitionCache:
         return self.cache.get(track_id)
         
     def remove(self, track_id: int):
+        """Remove a track ID entry from the cache."""
         if track_id in self.cache:
             del self.cache[track_id]
 

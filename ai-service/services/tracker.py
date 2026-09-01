@@ -1,8 +1,12 @@
+"""
+tracker.py - Multi-object face tracking using IoU cost calculation and Linear Assignment (Hungarian algorithm).
+"""
 import numpy as np
 from scipy.spatial.distance import cdist
 import lap
 
 class Tracker:
+    """Tracks detected faces across consecutive frames to maintain consistent track IDs."""
     def __init__(self, max_age=30, max_iou_distance=0.7):
         self.max_age = max_age
         self.max_iou_distance = max_iou_distance

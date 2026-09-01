@@ -1,7 +1,12 @@
+"""
+scrub_sightings.py - Cleanup script to remove spurious unknown sightings and duplicate recognition logs
+when a track is confirmed as a known person.
+"""
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 
 async def main():
+    # Connect to MongoDB database
     client = AsyncIOMotorClient('mongodb://localhost:27017')
     db = client['surveillance_db']
     

@@ -1,3 +1,7 @@
+"""
+faiss_manager.py - FAISS vector index manager for known registered person embeddings.
+Provides fast inner-product (cosine similarity) nearest neighbor vector search.
+"""
 import os
 import faiss
 import numpy as np
@@ -7,6 +11,7 @@ from cache.embedding_cache import embedding_cache
 from services.logger import sys_logger, err_logger
 
 class FaissManager:
+    """Singleton managing FAISS IndexFlatIP and user mapping for known identities."""
     _instance = None
     
     def __new__(cls):
@@ -37,6 +42,7 @@ class FaissManager:
         sys_logger.info(f"FAISS index built with {self.index.ntotal} embeddings.")
 
     def add_user(self, user_id: str, embedding: np.ndarray):
+        """Add a single user's normalized face embedding to the FAISS index."""
         if self.index is None:
             self.build_from_cache()
             
@@ -48,6 +54,7 @@ class FaissManager:
         self.id_map[faiss_id] = user_id
         
     def search(self, embedding: np.ndarray, threshold: float = settings.RECOGNITION_THRESHOLD) -> Optional[Tuple[str, float]]:
+        """Search nearest neighbor in index. Returns (user_id, similarity) if above threshold."""
         if self.index is None or self.index.ntotal == 0:
             return None
             
@@ -65,6 +72,7 @@ class FaissManager:
         return None
 
     def save_index(self):
+        """Persist FAISS index binary file to disk."""
         if self.index is not None:
             faiss.write_index(self.index, self.index_path)
 

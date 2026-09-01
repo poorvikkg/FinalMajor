@@ -11,8 +11,8 @@ export const Card: React.FC<CardProps> = ({ children, className, hoverable = fal
     <div
       className={twMerge(
         clsx(
-          'bg-white rounded-2xl border border-slate-200/60 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] overflow-hidden transition-all duration-300',
-          hoverable && 'hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-0.5'
+          'bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden transition-all duration-200',
+          hoverable && 'hover:border-slate-300 hover:shadow-sm'
         ),
         className
       )}
@@ -25,7 +25,7 @@ export const Card: React.FC<CardProps> = ({ children, className, hoverable = fal
 
 export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ children, className, ...props }) => {
   return (
-    <div className={twMerge('px-6 py-4 border-b border-slate-100 bg-white/50 backdrop-blur-sm', className)} {...props}>
+    <div className={twMerge('px-5 py-3.5 border-b border-slate-100 bg-white', className)} {...props}>
       {children}
     </div>
   );
@@ -33,12 +33,12 @@ export const CardHeader: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ chi
 
 export const CardTitle: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({ children, className, ...props }) => {
   return (
-    <h3 className={twMerge('text-[13px] font-bold text-slate-800 tracking-wide font-heading', className)} {...props}>
+    <h3 className={twMerge('text-sm font-semibold text-slate-900 tracking-tight font-heading', className)} {...props}>
       {children}
     </h3>
   );
 };
 
 export const CardContent: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ children, className, ...props }) => {
-  return <div className={twMerge('p-6 bg-white text-slate-700 text-sm', className)} {...props}>{children}</div>;
+  return <div className={twMerge('p-5 bg-white text-slate-700 text-sm', className)} {...props}>{children}</div>;
 };

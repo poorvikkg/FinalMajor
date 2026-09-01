@@ -440,28 +440,23 @@ export const AccompliceDetection: React.FC = () => {
         </button>
       </div>
 
-      {/* ── Filters Bar ── */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-          <Sliders className="w-4 h-4 text-slate-700" />
-          <h2 className="text-sm font-bold text-slate-800">Graph Configuration Parameters</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* ── Configuration Controls ── */}
+      <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-xs space-y-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Target Suspect Focus Dropdown */}
-          <div className="space-y-2 relative">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-              Suspect Search & Focus
+          <div className="space-y-1.5 relative">
+            <label className="text-xs font-medium text-slate-500 block">
+              Suspect Filter
             </label>
             <div className="relative">
               {targetSuspect ? (
-                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs text-slate-800">
+                <div className="flex items-center justify-between bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg text-xs text-slate-800">
                   <div className="flex items-center gap-2 truncate">
                     {targetSuspect.snapshot ? (
                       <img
                         src={targetSuspect.snapshot}
                         alt=""
-                        className="w-5 h-5 rounded-full object-cover border border-slate-300"
+                        className="w-4 h-4 rounded-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
@@ -469,11 +464,11 @@ export const AccompliceDetection: React.FC = () => {
                     ) : (
                       <User className="w-3.5 h-3.5 text-slate-500" />
                     )}
-                    <span className="font-semibold truncate">{targetSuspect.label}</span>
+                    <span className="font-medium truncate">{targetSuspect.label}</span>
                   </div>
                   <button
                     onClick={() => setTargetSuspect(null)}
-                    className="p-0.5 rounded-lg hover:bg-slate-200 text-slate-500 transition"
+                    className="p-0.5 rounded hover:bg-slate-200 text-slate-500 transition"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -482,24 +477,24 @@ export const AccompliceDetection: React.FC = () => {
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search suspects to filter graph..."
+                    placeholder="Search suspects..."
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       setShowSuspectDropdown(true);
                     }}
                     onFocus={() => setShowSuspectDropdown(true)}
-                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 focus:border-slate-800 focus:outline-none text-xs font-semibold text-slate-800"
+                    className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 focus:border-slate-800 focus:outline-none text-xs text-slate-800"
                   />
-                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                 </div>
               )}
 
               {/* Dropdown Box */}
               {showSuspectDropdown && !targetSuspect && (
-                <div className="absolute left-0 right-0 mt-2 max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-50 divide-y divide-slate-100">
+                <div className="absolute left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg z-50 divide-y divide-slate-100">
                   {filteredSuspectList.length === 0 ? (
-                    <div className="p-3 text-xs text-slate-400 font-medium text-center">No suspects found</div>
+                    <div className="p-3 text-xs text-slate-400 text-center">No suspects found</div>
                   ) : (
                     filteredSuspectList.map((item) => (
                       <button
@@ -509,20 +504,17 @@ export const AccompliceDetection: React.FC = () => {
                           setSearchQuery('');
                           setShowSuspectDropdown(false);
                         }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-slate-50 text-left transition"
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-50 text-left transition"
                       >
-                        <div className="w-6 h-6 rounded-lg bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-200 flex-shrink-0">
+                        <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                           {item.snapshot ? (
                             <img src={getSnapshotUrl(item.snapshot)} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <User className="w-3.5 h-3.5 text-slate-400" />
+                            <User className="w-3 h-3 text-slate-400" />
                           )}
                         </div>
                         <div className="truncate">
-                          <p className="text-xs font-bold text-slate-800 truncate mb-0.5">{item.label}</p>
-                          <p className="text-[9px] uppercase tracking-wide text-slate-400 font-extrabold">
-                            {item.type === 'KNOWN' ? 'Known Missing Person' : 'Unknown Recurring'}
-                          </p>
+                          <p className="text-xs font-medium text-slate-800 truncate">{item.label}</p>
                         </div>
                       </button>
                     ))
@@ -539,10 +531,10 @@ export const AccompliceDetection: React.FC = () => {
           </div>
 
           {/* Time Window Slider */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              <span>Time Proximity Window</span>
-              <span className="text-slate-800 font-black">{Math.floor(timeWindow / 60)}m {timeWindow % 60}s</span>
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Time Window</span>
+              <span className="font-semibold text-slate-800">{Math.floor(timeWindow / 60)}m {timeWindow % 60}s</span>
             </div>
             <input
               type="range"
@@ -553,18 +545,13 @@ export const AccompliceDetection: React.FC = () => {
               onChange={(e) => setTimeWindow(parseInt(e.target.value, 10))}
               className="w-full h-1.5 bg-slate-100 accent-slate-900 rounded-lg appearance-none cursor-pointer"
             />
-            <div className="flex justify-between text-[9px] font-medium text-slate-400">
-              <span>30s</span>
-              <span>5m</span>
-              <span>10m</span>
-            </div>
           </div>
 
           {/* Distance Threshold Slider */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              <span>Geospatial Distance Threshold</span>
-              <span className="text-slate-800 font-black">{distanceThreshold} meters</span>
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs text-slate-500">
+              <span>Distance Threshold</span>
+              <span className="font-semibold text-slate-800">{distanceThreshold}m</span>
             </div>
             <input
               type="range"
@@ -575,60 +562,49 @@ export const AccompliceDetection: React.FC = () => {
               onChange={(e) => setDistanceThreshold(parseInt(e.target.value, 10))}
               className="w-full h-1.5 bg-slate-100 accent-slate-900 rounded-lg appearance-none cursor-pointer"
             />
-            <div className="flex justify-between text-[9px] font-medium text-slate-400">
-              <span>10m</span>
-              <span>120m</span>
-              <span>250m</span>
-            </div>
           </div>
         </div>
 
         {/* Date Boundaries & Min Co-occurrences */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-3 border-t border-slate-100">
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-              Min Co-occurrences
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2.5 border-t border-slate-100">
+          <div className="space-y-1">
+            <label className="text-xs text-slate-500 block">
+              Min Encounters
             </label>
             <select
               value={minCoOccurrences}
               onChange={(e) => setMinCoOccurrences(parseInt(e.target.value, 10))}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-800 outline-none"
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none"
             >
-              <option value={1}>At least 1 time</option>
-              <option value={2}>At least 2 times</option>
-              <option value={3}>At least 3 times</option>
-              <option value={5}>At least 5 times</option>
+              <option value={1}>1+ time</option>
+              <option value={2}>2+ times</option>
+              <option value={3}>3+ times</option>
+              <option value={5}>5+ times</option>
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-              Start Date
+          <div className="space-y-1">
+            <label className="text-xs text-slate-500 block">
+              From Date
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2.5 py-1 text-xs font-semibold text-slate-800 outline-none"
-              />
-              <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-            </div>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none"
+            />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-              End Date
+          <div className="space-y-1">
+            <label className="text-xs text-slate-500 block">
+              To Date
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-2.5 py-1 text-xs font-semibold text-slate-800 outline-none"
-              />
-              <Calendar className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-            </div>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 outline-none"
+            />
           </div>
 
           <div className="flex items-end">
@@ -640,10 +616,10 @@ export const AccompliceDetection: React.FC = () => {
                   setTargetSuspect(null);
                   setMinCoOccurrences(1);
                 }}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 transition"
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-600 transition"
               >
                 <X className="w-3.5 h-3.5" />
-                Clear Filters
+                Reset Filters
               </button>
             )}
           </div>
@@ -651,28 +627,28 @@ export const AccompliceDetection: React.FC = () => {
       </div>
 
       {/* ── Graph Canvas & Sidebar Details ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Network Graph Box */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col relative min-h-[550px]">
+        <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-xs flex flex-col relative min-h-[550px]">
           {/* Legend and stats */}
-          <div className="p-4 bg-slate-50/60 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 z-10">
-            <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
+          <div className="px-4 py-3 bg-white border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 z-10 text-xs text-slate-500">
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full border-2 border-slate-700 bg-white" />
-                <span>Known Missing ({simulationState.nodes.filter(n => n.type === 'KNOWN').length})</span>
+                <span className="w-2.5 h-2.5 rounded-full border border-slate-700 bg-white" />
+                <span>Known ({simulationState.nodes.filter(n => n.type === 'KNOWN').length})</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-full border-2 border-slate-400 bg-white" />
-                <span>Unknown Recurring ({simulationState.nodes.filter(n => n.type === 'UNKNOWN').length})</span>
+                <span className="w-2.5 h-2.5 rounded-full border border-slate-400 bg-white" />
+                <span>Unknown ({simulationState.nodes.filter(n => n.type === 'UNKNOWN').length})</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-6 h-0.5 bg-slate-200" />
-                <span>Co-occurrence Links ({simulationState.links.length})</span>
+                <span className="w-4 h-0.5 bg-slate-300" />
+                <span>Links ({simulationState.links.length})</span>
               </div>
             </div>
-            <div className="text-[10px] font-extrabold uppercase text-slate-400 flex items-center gap-1">
+            <div className="text-[11px] text-slate-400 flex items-center gap-1">
               <Info className="w-3.5 h-3.5" />
-              <span>Drag nodes to arrange. Click lines for evidence logs.</span>
+              <span>Drag nodes to organize. Click links for evidence.</span>
             </div>
           </div>
 

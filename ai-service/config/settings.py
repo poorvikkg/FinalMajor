@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     
     # Thresholds & Limits
     DETECTION_THRESHOLD: float = 0.5
-    RECOGNITION_THRESHOLD: float = 0.35
+    RECOGNITION_THRESHOLD: float = 0.30
     UNKNOWN_FACE_THRESHOLD: float = 0.40
     MIN_FACE_SIZE: int = 40          # minimum face bounding-box side in pixels
     BLUR_THRESHOLD: float = 50.0    # Laplacian variance threshold (higher = stricter)

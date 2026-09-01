@@ -11,6 +11,7 @@ import { sendSuccess, sendPaginated } from '../utils/response';
 import { getPaginationOptions, buildPaginationMeta } from '../utils/pagination';
 import { uploadToMinio } from '../services/minio.service';
 import fs from 'fs';
+import path from 'path';
 import axios from 'axios';
 import FormData from 'form-data';
 import { env } from '../config/env';
@@ -107,14 +108,26 @@ export async function create(req: AuthRequest, res: Response, next: NextFunction
     if (req.files && Array.isArray(req.files)) {
       const filesList = req.files as Express.Multer.File[];
       for (const file of filesList) {
-        const url = await uploadToMinio(file.path, 'attachments');
-        attachmentUrls.push(url);
+        try {
+          const url = await uploadToMinio(file.path, 'attachments');
+          attachmentUrls.push(url);
+        } catch (minioErr) {
+          console.warn('[MinIO] Upload failed, falling back to local path:', (minioErr as any)?.message || minioErr);
+          const relPath = path.join('attachments', path.basename(file.path)).replace(/\\/g, '/');
+          attachmentUrls.push(relPath);
+        }
         localFilesToRegister.push(file.path);
       }
     } else if (req.file) {
       const file = req.file as Express.Multer.File;
-      const url = await uploadToMinio(file.path, 'attachments');
-      attachmentUrls.push(url);
+      try {
+        const url = await uploadToMinio(file.path, 'attachments');
+        attachmentUrls.push(url);
+      } catch (minioErr) {
+        console.warn('[MinIO] Upload failed, falling back to local path:', (minioErr as any)?.message || minioErr);
+        const relPath = path.join('attachments', path.basename(file.path)).replace(/\\/g, '/');
+        attachmentUrls.push(relPath);
+      }
       localFilesToRegister.push(file.path);
     }
 

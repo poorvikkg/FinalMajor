@@ -43,6 +43,7 @@ export const Sidebar: React.FC = () => {
     {
       title: 'Cases & Records',
       items: [
+        { to: '/file-case', label: 'File Complaint', icon: FilePlus, roles: ['admin', 'station'] },
         { to: '/complaints', label: 'View Complaints', icon: FileQuestion, roles: ['admin', 'station'] },
         { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },
         { to: '/recurring-unknowns', label: 'Recurring Unknowns', icon: UserSearch, roles: ['admin'] },
@@ -58,16 +59,14 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col min-h-screen text-slate-700 select-none relative overflow-hidden">
+    <aside className="w-60 bg-white border-r border-slate-200/80 flex flex-col min-h-screen text-slate-700 select-none">
       {/* Title Header */}
-      <div className="h-[72px] flex items-center px-6 border-b border-slate-200 bg-slate-50 relative z-10">
-        <div>
-          <h1 className="font-black text-slate-900 tracking-widest text-[13px] uppercase font-heading">MPDS</h1>
-        </div>
+      <div className="h-16 flex items-center px-6 border-b border-slate-100">
+        <h1 className="font-bold text-slate-900 tracking-wider text-sm font-heading">SENTINEL</h1>
       </div>
 
       {/* Nav Menu */}
-      <nav className="flex-1 px-4 py-4 space-y-5 relative z-10 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
         {sections.map((section) => {
           const visibleSectionItems = section.items.filter(
             (item) => user && item.roles.includes(user.role)
@@ -75,8 +74,8 @@ export const Sidebar: React.FC = () => {
           if (visibleSectionItems.length === 0) return null;
 
           return (
-            <div key={section.title} className="space-y-1">
-              <p className="px-3.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 select-none">
+            <div key={section.title} className="space-y-0.5">
+              <p className="px-3 text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                 {section.title}
               </p>
               <div className="space-y-0.5">
@@ -85,22 +84,17 @@ export const Sidebar: React.FC = () => {
                     key={item.to}
                     to={item.to}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200 group relative overflow-hidden ${
+                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                         isActive
-                          ? 'text-white bg-slate-900 shadow-md shadow-slate-900/10'
-                          : 'hover:text-slate-900 text-slate-600 hover:bg-slate-100'
+                          ? 'text-slate-900 bg-slate-100 font-semibold'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                       }`
                     }
                   >
                     {({ isActive }) => (
                       <>
-                        {/* Active indicator bar */}
-                        {isActive && (
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 bg-white rounded-r-full opacity-50" />
-                        )}
-                        
-                        <item.icon className={`h-4 w-4 shrink-0 relative z-10 transition-colors duration-200 ${isActive ? 'text-white' : 'group-hover:text-slate-900'}`} />
-                        <span className="relative z-10">{item.label}</span>
+                        <item.icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                        <span>{item.label}</span>
                       </>
                     )}
                   </NavLink>
@@ -112,18 +106,13 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* Profile Area */}
-      <div className="p-4 m-4 rounded-2xl border border-slate-200 bg-slate-50 flex items-center gap-3 relative z-10 hover:bg-slate-100 transition-colors cursor-pointer group shadow-sm">
-        <div className="h-10 w-10 rounded-xl bg-slate-900 flex items-center justify-center text-white text-sm font-black shadow-sm">
+      <div className="p-3 m-3 rounded-xl border border-slate-100 bg-slate-50/60 flex items-center gap-3">
+        <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center text-white text-xs font-semibold">
           {(user?.name || '?').charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-slate-900 truncate mb-0.5">{user?.name || 'Loading...'}</p>
-          <div className="flex items-center gap-1.5">
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">
-              {user?.role || '...'}
-            </span>
-          </div>
+          <p className="text-xs font-semibold text-slate-900 truncate">{user?.name || 'User'}</p>
+          <p className="text-[10px] text-slate-500 capitalize">{user?.role || ''}</p>
         </div>
       </div>
     </aside>

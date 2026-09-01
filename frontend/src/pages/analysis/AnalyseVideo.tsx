@@ -36,6 +36,7 @@ interface RecognitionLog {
 }
 
 import { LocationPicker } from '../../components/map/LocationPicker';
+import { getSnapshotUrl } from '../../utils/pathPrediction';
 
 export const AnalyseVideo: React.FC = () => {
   const queryClient = useQueryClient();
@@ -559,7 +560,7 @@ export const AnalyseVideo: React.FC = () => {
                         </td>
                         <td className="px-5 py-3">
                           {log.snapshot ? (
-                            <img src={`/uploads/${log.snapshot}`} alt="Face" className="h-10 w-10 object-cover border" />
+                            <img src={getSnapshotUrl(log.snapshot)} alt="Face" className="h-10 w-10 object-cover rounded border border-slate-200" />
                           ) : (
                             <span className="text-[10px] text-slate-300 font-bold uppercase">No Snapshot</span>
                           )}
@@ -581,15 +582,15 @@ export const AnalyseVideo: React.FC = () => {
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {unknown.map(log => (
-                    <div key={log._id} className="border border-slate-200 p-2 text-center bg-white space-y-1">
+                    <div key={log._id} className="border border-slate-200 rounded-xl p-2.5 text-center bg-white space-y-1.5 shadow-xs">
                       {log.snapshot ? (
-                        <img src={`/uploads/${log.snapshot}`} alt="Unknown Face" className="w-full aspect-square object-cover border" />
+                        <img src={getSnapshotUrl(log.snapshot)} alt="Unknown Face" className="w-full aspect-square object-cover rounded-lg border border-slate-100" />
                       ) : (
-                        <div className="w-full aspect-square bg-slate-55 flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase">
+                        <div className="w-full aspect-square bg-slate-50 rounded-lg flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase">
                           No photo
                         </div>
                       )}
-                      <p className="text-[10px] font-mono text-slate-500">Conf: {Math.round(log.confidence * 100)}%</p>
+                      <p className="text-[10px] font-mono font-medium text-slate-500">Conf: {Math.round(log.confidence * 100)}%</p>
                       <p className="text-[9px] text-slate-400">{new Date(log.timestamp).toLocaleTimeString()}</p>
                     </div>
                   ))}

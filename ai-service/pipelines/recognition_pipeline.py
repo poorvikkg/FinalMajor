@@ -236,28 +236,45 @@ class RecognitionPipeline:
     ) -> Optional[Dict]:
         """
         Update the vote state for a track. Returns a confirmed result dict
-        if VOTE_FRAMES consecutive matching votes have accumulated, else None.
+        if VOTE_FRAMES matching votes have accumulated (or if a single high-confidence match >= 0.45 occurs).
         """
         state = self._vote_state[track_id]
         frames_since_last = self._frame_idx - state["last_frame"]
 
-        # Reset if candidate changed or gap is too large
-        if state["user_id"] != candidate_uid or frames_since_last > MAX_VOTE_GAP:
+        # If a single match is high confidence (>= 0.45), confirm immediately
+        if candidate_uid != "unknown" and confidence >= 0.45:
+            state["user_id"] = candidate_uid
+            state["votes"] = VOTE_FRAMES
+            state["confidences"] = [confidence]
+            state["last_frame"] = self._frame_idx
+            return {"user_id": candidate_uid, "avg_confidence": confidence}
+
+        # Reset if a different KNOWN candidate is seen or gap is too large
+        if candidate_uid != "unknown" and state["user_id"] != "unknown" and state["user_id"] != candidate_uid:
+            state["user_id"]     = candidate_uid
+            state["votes"]       = 1
+            state["confidences"] = [confidence]
+        elif frames_since_last > MAX_VOTE_GAP:
             state["user_id"]     = candidate_uid
             state["votes"]       = 1
             state["confidences"] = [confidence]
         else:
-            state["votes"] += 1
-            state["confidences"].append(confidence)
+            if candidate_uid != "unknown":
+                state["user_id"] = candidate_uid
+                state["votes"] += 1
+                state["confidences"].append(confidence)
+            elif state["user_id"] == "unknown":
+                state["votes"] += 1
+                state["confidences"].append(confidence)
 
         state["last_frame"] = self._frame_idx
 
-        if state["votes"] >= VOTE_FRAMES:
-            avg_conf = float(np.mean(state["confidences"]))
-            # Reset so next confirmation needs fresh VOTE_FRAMES
+        # Require 2 matching frames for standard match confirmation
+        if state["votes"] >= 2:
+            avg_conf = float(np.mean(state["confidences"])) if state["confidences"] else confidence
             state["votes"]       = 0
             state["confidences"] = []
-            return {"user_id": candidate_uid, "avg_confidence": avg_conf}
+            return {"user_id": state["user_id"], "avg_confidence": avg_conf}
 
         return None
 

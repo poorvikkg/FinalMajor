@@ -74,7 +74,9 @@ const worker = new Worker('video-processing', async (job: Job) => {
     const seenUserIds = new Set<string>();
 
     for (const log of filteredTimeline) {
-      const dedupeKey = log.is_unknown || log.user_id === 'unknown' ? `unknown_${log.track_id || Math.round(log.confidence * 10)}` : log.user_id;
+      const dedupeKey = log.is_unknown || log.user_id === 'unknown' 
+        ? (log.cluster_key || log.snap_key || `unknown_${log.track_id || 1}`) 
+        : log.user_id;
       if (seenUserIds.has(dedupeKey)) continue;
       seenUserIds.add(dedupeKey);
 

@@ -193,32 +193,62 @@ def process_video_file(
     cap.release()
     reader.join(timeout=5)
 
-    # ── Resolve Known Tracks & Clean Timeline ─────────────────────────────
+    # ── Resolve Known Tracks & Cluster Unknown Tracks ─────────────────────
     track_known_map: dict = {}
+    track_embeddings: dict = {}
+
+    # Collect embeddings per track
+    for entry in timeline:
+        tid = entry.get("track_id")
+        if tid is not None and entry.get("embedding"):
+            emb = np.array(entry["embedding"], dtype=np.float32)
+            if tid not in track_embeddings:
+                track_embeddings[tid] = emb
+            else:
+                # Accumulate average embedding for the track
+                track_embeddings[tid] = 0.5 * track_embeddings[tid] + 0.5 * emb
+                norm = np.linalg.norm(track_embeddings[tid])
+                if norm > 1e-6:
+                    track_embeddings[tid] = track_embeddings[tid] / norm
 
     # 1. Collect known user_id for any track that matched a known person at any frame
     for entry in timeline:
         if not entry["is_unknown"] and entry.get("user_id") and entry.get("user_id") != "unknown":
             track_known_map[entry["track_id"]] = entry["user_id"]
 
-    # 2. Also search FaissManager for any unknown embeddings (threshold 0.22 for video processing)
+    # 2. Search Embedding Cache & FaissManager for all tracks
     from services.faiss_manager import faiss_manager
-    for entry in timeline:
-        if entry["is_unknown"] and entry.get("embedding"):
-            emb = np.array(entry["embedding"], dtype=np.float32)
-            if target_user_id and target_user_id != "undefined":
-                from cache.embedding_cache import embedding_cache
-                target_embs = embedding_cache.get(target_user_id)
-                if target_embs:
-                    sims = [_cosine_similarity(emb, e) for e in target_embs if e.size == 512]
-                    if sims and max(sims) >= 0.22:
-                        track_known_map[entry["track_id"]] = target_user_id
-                        continue
+    from cache.embedding_cache import embedding_cache
 
-            match = faiss_manager.search(emb, threshold=0.22)
-            if match:
-                known_uid, _ = match
-                track_known_map[entry["track_id"]] = known_uid
+    for tid, emb in track_embeddings.items():
+        if tid in track_known_map:
+            continue
+        if target_user_id and target_user_id != "undefined":
+            target_embs = embedding_cache.get(target_user_id)
+            if target_embs:
+                sims = [_cosine_similarity(emb, e) for e in target_embs if e.size == 512]
+                if sims and max(sims) >= 0.20:
+                    track_known_map[tid] = target_user_id
+                    continue
+
+        # Check all registered complaints directly in RAM cache
+        best_known_uid = None
+        best_known_sim = 0.0
+        for uid, u_embs in embedding_cache.embeddings.items():
+            for ue in u_embs:
+                sim = _cosine_similarity(emb, ue)
+                if sim > best_known_sim:
+                    best_known_sim = sim
+                    best_known_uid = uid
+
+        if best_known_uid and best_known_sim >= 0.25:
+            track_known_map[tid] = best_known_uid
+            continue
+
+        match = faiss_manager.search(emb, threshold=0.25)
+        if match:
+            known_uid, _ = match
+            track_known_map[tid] = known_uid
 
     # 3. If target_user_id was matched for ANY track in the video, assign all tracks in this video to target_user_id
     if target_user_id and target_user_id != "undefined":
@@ -226,41 +256,91 @@ def process_video_file(
             for entry in timeline:
                 track_known_map[entry["track_id"]] = target_user_id
 
-    # 4. Override timeline entries for resolved tracks
+    # 4. Intra-video Unknown Face Clustering: Group all unassigned unknown tracks that belong to the same person
+    unknown_clusters: list = [] # list of {"id": str, "embedding": np.ndarray, "tracks": set()}
+    cluster_counter = 0
+
+    for tid, emb in track_embeddings.items():
+        if tid in track_known_map:
+            continue
+        
+        assigned_cluster = None
+        best_sim = 0.0
+        for cluster in unknown_clusters:
+            sim = _cosine_similarity(emb, cluster["embedding"])
+            if sim > best_sim and sim >= 0.35: # Intra-video same-person cosine similarity threshold
+                best_sim = sim
+                assigned_cluster = cluster
+
+        if assigned_cluster:
+            assigned_cluster["tracks"].add(tid)
+            # Update running average embedding of the cluster
+            assigned_cluster["embedding"] = 0.6 * assigned_cluster["embedding"] + 0.4 * emb
+            norm = np.linalg.norm(assigned_cluster["embedding"])
+            if norm > 1e-6:
+                assigned_cluster["embedding"] = assigned_cluster["embedding"] / norm
+            track_known_map[tid] = assigned_cluster["id"]
+        else:
+            cluster_counter += 1
+            cid = f"unknown_person_{cluster_counter}"
+            unknown_clusters.append({
+                "id": cid,
+                "embedding": emb,
+                "tracks": {tid}
+            })
+            track_known_map[tid] = cid
+
+    # 4.5 Fallback for any tracks without embeddings
+    for entry in timeline:
+        tid = entry.get("track_id")
+        if tid is not None and tid not in track_known_map:
+            if len(unknown_clusters) > 0:
+                track_known_map[tid] = unknown_clusters[0]["id"]
+            else:
+                cluster_counter += 1
+                cid = f"unknown_person_{cluster_counter}"
+                track_known_map[tid] = cid
+
+    # 5. Override timeline entries for resolved tracks
     for entry in timeline:
         tid = entry.get("track_id")
         if tid in track_known_map:
-            entry["is_unknown"] = False
-            entry["user_id"] = track_known_map[tid]
+            resolved_id = track_known_map[tid]
+            is_unresolved = resolved_id.startswith("unknown_person_") or resolved_id == "unknown"
+            entry["is_unknown"] = is_unresolved
+            entry["user_id"] = "unknown" if is_unresolved else resolved_id
+            entry["cluster_key"] = resolved_id
 
-    # 5. Remap best_crops keys so resolved tracks get green IDENTIFIED snapshot labels
+    # 6. Remap best_crops keys by resolved cluster/person so we get only ONE best snapshot per unique person
     remapped_best_crops = {}
     for snap_key, data in best_crops.items():
+        target_key = snap_key
         if snap_key.startswith("unknown_track"):
             try:
                 tid = int(snap_key.replace("unknown_track", ""))
-                if tid in track_known_map:
-                    new_key = track_known_map[tid]
-                    if new_key not in remapped_best_crops or data[2] > remapped_best_crops[new_key][2]:
-                        remapped_best_crops[new_key] = data
-                    continue
+                target_key = track_known_map.get(tid, snap_key)
             except Exception:
                 pass
-        remapped_best_crops[snap_key] = data
+        if target_key not in remapped_best_crops or data[2] > remapped_best_crops[target_key][2]:
+            remapped_best_crops[target_key] = data
+
+    # Ensure all resolved targets have a snapshot assigned
+    for cid in set(track_known_map.values()):
+        if cid not in remapped_best_crops and len(best_crops) > 0:
+            remapped_best_crops[cid] = list(best_crops.values())[0]
 
     saved = _save_best_snapshot({k: v[:2] for k, v in remapped_best_crops.items()})
 
-    # 6. Group timeline entries by resolved key, keeping the HIGHEST confidence entry
+    # 7. Group timeline entries by resolved person/cluster, keeping ONE highest quality entry per person
     grouped_entries: dict = {}
     for entry in timeline:
-        key = entry.pop("snap_key", None)
         tid = entry.get("track_id")
-        if tid in track_known_map:
-            key = track_known_map[tid]
-        elif not key:
-            key = entry.get("user_id", "unknown")
+        key = track_known_map.get(tid, entry.get("cluster_key", "unknown"))
 
         fname = saved.get(key)
+        if not fname and len(saved) > 0:
+            fname = list(saved.values())[0]
+
         entry["snapshot_path"] = f"snapshots/{fname}" if fname else None
 
         existing = grouped_entries.get(key)
@@ -269,7 +349,7 @@ def process_video_file(
 
     final_timeline = list(grouped_entries.values())
 
-    # 7. If target person is identified, filter out any residual 0-confidence unknown entries
+    # 8. If target person is identified, filter out any residual unknown entries
     if any(not e.get("is_unknown") for e in final_timeline):
         final_timeline = [e for e in final_timeline if not e.get("is_unknown")]
 

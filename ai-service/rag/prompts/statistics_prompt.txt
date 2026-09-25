@@ -6,7 +6,13 @@ Context Information:
 User Query: {query}
 
 Instructions:
-- Provide an informative, structured answer using the provided active database records and statistical context.
-- If the user asks about recent FIRs, complaints, or case counts, summarize the active case files and complaints retrieved from the database.
-- If historical crime datasets are present in context, highlight the relevant figures, trends, or state/district data.
-- Structure your response cleanly using markdown bullet points and bold headers.
+- Provide an informative, highly structured intelligence report using the active database records and statistical context.
+- Structure your response using clear Markdown sections:
+  1. ### Statistical Executive Summary
+     Overview of total counts, key numbers, active versus closed cases, or crime rate summaries.
+  2. ### Data Breakdown Table
+     ALWAYS format the figures, district breakdown, crime categories, or historical comparisons into a structured Markdown Table (e.g. `| Category / Metric | Total Recorded | Region / District | Period / Year | Status / Trend |`).
+  3. ### Key Analytical Insights
+     Bullet points highlighting trends, anomalies, high-incidence areas, or patterns.
+- Ground all numbers strictly in the provided context.
+

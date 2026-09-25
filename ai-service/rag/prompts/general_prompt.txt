@@ -5,4 +5,14 @@ Context Information:
 
 User Query: {query}
 
-Provide a detailed answer using only the provided context. If the context does not contain the answer, say so.
+Instructions:
+- Provide an informative, highly structured response based on the context.
+- Structure your response using clear Markdown sections:
+  1. ### Summary & Direct Answer
+     A direct, executive answer to the user query.
+  2. ### Structured Records & Data Table
+     Whenever listing cases, suspects, sightings, camera details, or complaints, format them into a comprehensive Markdown Table (e.g. `| Case / ID | Name / Subject | Type / Category | Status | Location | Date / Time | Officer / Remarks |`).
+  3. ### Key Details & Observations
+     Bullet points highlighting specific facts, physical identifiers, contact details, or priority notes.
+- If the provided context does not contain sufficient details to answer, state clearly what is missing without inventing facts.
+

@@ -146,17 +146,17 @@ export const RagDataImport: React.FC = () => {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-md">
-            <Database className="w-5 h-5" />
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-slate-900 text-white rounded-lg">
+            <Database className="w-4 h-4" />
           </div>
           <div>
-            <h1 className="text-base font-black text-slate-900 tracking-wider uppercase font-heading">
-              RAG Case Data Import
+            <h1 className="text-sm font-bold text-slate-900">
+              RAG Data Import
             </h1>
-            <p className="text-[11px] text-slate-500 font-medium">
-              Upload CSV, Excel, or JSON datasets into vector index & database
+            <p className="text-xs text-slate-500">
+              Upload datasets into RAG database
             </p>
           </div>
         </div>
@@ -289,35 +289,35 @@ export const RagDataImport: React.FC = () => {
           )}
         </div>
 
-        {/* AI Index Sidebar Panel */}
+        {/* Index Status Panel */}
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
             <div>
-              <h2 className="text-xs font-black uppercase tracking-wider text-slate-900 font-heading">
-                AI Vector Index Status
+              <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900">
+                Vector Index
               </h2>
-              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                After uploading dataset files, rebuild the FAISS vector index so the AI Intelligence pipeline can retrieve answers from new records.
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Rebuild index after uploading new datasets.
               </p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-2 font-medium">
-              <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs space-y-1.5 font-medium">
+              <div className="flex justify-between border-b border-slate-200 pb-1">
                 <span className="text-slate-500">Index Built:</span>
-                <span className="font-bold text-slate-900">
+                <span className="font-semibold text-slate-900">
                   {indexStatus === null ? '—' : indexStatus.index_exists ? 'Yes' : 'No'}
                 </span>
               </div>
-              <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+              <div className="flex justify-between border-b border-slate-200 pb-1">
                 <span className="text-slate-500">Total Vectors:</span>
-                <span className="font-bold text-slate-900">
+                <span className="font-semibold text-slate-900">
                   {indexStatus?.total_vectors !== undefined ? indexStatus.total_vectors.toLocaleString() : '—'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Engine Status:</span>
-                <span className={`font-bold ${building ? 'text-amber-600' : 'text-emerald-600'}`}>
-                  {building ? 'Building...' : 'Idle / Ready'}
+                <span className="text-slate-500">Status:</span>
+                <span className={`font-semibold ${building ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  {building ? 'Building...' : 'Ready'}
                 </span>
               </div>
             </div>
@@ -325,10 +325,10 @@ export const RagDataImport: React.FC = () => {
             <button
               onClick={rebuildIndex}
               disabled={building}
-              className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md transition-all"
+              className="w-full py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${building ? 'animate-spin' : ''}`} />
-              {building ? 'Rebuilding Index...' : 'Rebuild AI Index'}
+              <RefreshCw className={`w-3.5 h-3.5 ${building ? 'animate-spin' : ''}`} />
+              {building ? 'Rebuilding Index...' : 'Rebuild Index'}
             </button>
           </div>
 

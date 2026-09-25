@@ -26,97 +26,88 @@ export const Sidebar: React.FC = () => {
     {
       title: 'Operations',
       items: [
-        { to: '/monitoring', label: 'Live Monitoring', icon: Tv, roles: ['admin'] },
-        { to: '/analyse', label: 'Video Analysis', icon: ScanSearch, roles: ['admin'] },
-        { to: '/detection-map', label: 'Detection Map', icon: MapPin, roles: ['admin', 'station'] },
-      ]
+        { to: '/monitoring',    label: 'Live Monitoring',  icon: Tv,          roles: ['admin'] },
+        { to: '/analyse',       label: 'Video Analysis',   icon: ScanSearch,   roles: ['admin'] },
+        { to: '/detection-map', label: 'Detection Map',    icon: MapPin,       roles: ['admin', 'station'] },
+      ],
     },
     {
-      title: 'Surveillance Intelligence',
+      title: 'Intelligence',
       items: [
-        { to: '/suspects/chase-map', label: 'Chase Map', icon: Radio, roles: ['admin'] },
-        { to: '/analytics/threats', label: 'Threat Board', icon: Zap, roles: ['admin'] },
-        { to: '/analytics/accomplices', label: 'Accomplice Engine', icon: Network, roles: ['admin'] },
-      ]
+        { to: '/suspects/chase-map',      label: 'Chase Map',          icon: Radio,   roles: ['admin'] },
+        { to: '/analytics/threats',       label: 'Threat Board',       icon: Zap,     roles: ['admin'] },
+        { to: '/analytics/accomplices',   label: 'Accomplice Engine',  icon: Network, roles: ['admin'] },
+      ],
     },
     {
-      title: 'RAG Knowledge AI',
+      title: 'RAG',
       items: [
-        { to: '/rag/chat', label: 'AI Intelligence Assistant', icon: Bot, roles: ['admin', 'station', 'viewer'] },
-        { to: '/rag/import', label: 'Data Ingestion & Store', icon: Database, roles: ['admin', 'station'] },
-      ]
+        { to: '/rag/chat',   label: 'Chat',        icon: Bot,      roles: ['admin', 'station', 'viewer'] },
+        { to: '/rag/import', label: 'Data Import', icon: Database, roles: ['admin', 'station'] },
+      ],
     },
     {
-      title: 'Cases & Records',
+      title: 'Cases',
       items: [
-        { to: '/file-case', label: 'File Complaint', icon: FilePlus, roles: ['station'] },
-        { to: '/complaints', label: 'View Complaints', icon: FileQuestion, roles: ['admin', 'station'] },
-        { to: '/logs', label: 'Recognition Logs', icon: FileText, roles: ['admin'] },
-        { to: '/recurring-unknowns', label: 'Recurring Unknowns', icon: UserSearch, roles: ['admin'] },
-      ]
+        { to: '/file-case',          label: 'File Complaint',    icon: FilePlus,   roles: ['station'] },
+        { to: '/complaints',         label: 'View Complaints',   icon: FileQuestion, roles: ['admin', 'station'] },
+        { to: '/logs',               label: 'Recognition Logs',  icon: FileText,   roles: ['admin'] },
+        { to: '/recurring-unknowns', label: 'Recurring Unknowns',icon: UserSearch, roles: ['admin'] },
+      ],
     },
     {
-      title: 'Configuration',
+      title: 'Config',
       items: [
-        { to: '/cameras', label: 'Camera Manager', icon: Camera, roles: ['admin'] },
-        { to: '/users', label: 'Station Manager', icon: Users, roles: ['admin'] },
-      ]
-    }
+        { to: '/cameras', label: 'Camera Manager',  icon: Camera, roles: ['admin'] },
+        { to: '/users',   label: 'Station Manager', icon: Users,  roles: ['admin'] },
+      ],
+    },
   ];
 
   return (
-    <aside className="w-60 bg-white border-r border-slate-200/90 flex flex-col min-h-screen select-none z-20">
-      {/* Brand Header */}
-      <div className="h-16 flex items-center justify-between px-5 border-b border-slate-100">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-xs">
-            <Shield className="h-4 w-4" />
-          </div>
-          <div>
-            <h1 className="font-extrabold text-slate-900 tracking-wider text-sm font-heading leading-tight">SENTINEL</h1>
-            <p className="text-[9px] font-mono text-slate-400 tracking-widest uppercase">LAW ENFORCEMENT</p>
-          </div>
+    <aside className="w-56 bg-white border-r border-slate-100 flex flex-col h-full select-none z-20 shrink-0">
+
+      {/* Brand */}
+      <div className="h-14 flex items-center gap-2.5 px-4 border-b border-slate-100 shrink-0">
+        <div className="h-7 w-7 rounded-lg bg-slate-900 flex items-center justify-center text-white">
+          <Shield className="h-3.5 w-3.5" />
         </div>
-        <div className="flex items-center gap-1">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
+        <div>
+          <p className="font-black text-slate-900 text-[13px] tracking-widest leading-none">SENTINEL</p>
+          <p className="text-[8px] font-mono text-slate-400 tracking-widest uppercase mt-0.5">Law Enforcement</p>
         </div>
       </div>
 
-      {/* Nav Menu */}
-      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto">
+      {/* Nav */}
+      <nav className="flex-1 px-2.5 py-3 overflow-y-auto space-y-4">
         {sections.map((section) => {
-          const visibleSectionItems = section.items.filter(
+          const visible = section.items.filter(
             (item) => user && item.roles.includes(user.role)
           );
-          if (visibleSectionItems.length === 0) return null;
+          if (visible.length === 0) return null;
 
           return (
-            <div key={section.title} className="space-y-0.5">
-              <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 font-mono">
+            <div key={section.title}>
+              <p className="px-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">
                 {section.title}
               </p>
               <div className="space-y-0.5">
-                {visibleSectionItems.map((item) => (
+                {visible.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     className={({ isActive }) =>
-                      `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      `flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
                         isActive
-                          ? 'text-slate-950 bg-slate-100 font-semibold shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-950 hover:bg-slate-50'
+                          ? 'bg-slate-900 text-white'
+                          : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                       }`
                     }
                   >
                     {({ isActive }) => (
                       <>
                         <item.icon
-                          className={`h-4 w-4 shrink-0 transition-colors ${
-                            isActive ? 'text-slate-900' : 'text-slate-400 group-hover:text-slate-600'
-                          }`}
+                          className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`}
                         />
                         <span className="truncate">{item.label}</span>
                       </>
@@ -129,17 +120,21 @@ export const Sidebar: React.FC = () => {
         })}
       </nav>
 
-      {/* Profile Area */}
-      <div className="p-3 m-3 rounded-xl border border-slate-200/80 bg-slate-50/70 flex items-center gap-3">
-        <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center text-white text-xs font-bold shadow-2xs">
-          {(user?.name || '?').charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-slate-900 truncate">{user?.name || 'User'}</p>
-          <p className="text-[10px] text-slate-500 font-mono capitalize">{user?.role || 'Officer'}</p>
+      {/* User */}
+      <div className="p-2.5 border-t border-slate-100 shrink-0">
+        <div className="flex items-center gap-2.5 px-2 py-2">
+          <div className="h-7 w-7 rounded-lg bg-slate-900 flex items-center justify-center text-white text-[11px] font-black shrink-0">
+            {(user?.name || '?').charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-semibold text-slate-900 truncate">{user?.name || 'User'}</p>
+            <p className="text-[10px] text-slate-400 font-mono capitalize">{user?.role || 'Officer'}</p>
+          </div>
         </div>
       </div>
+
     </aside>
   );
 };
+
 export default Sidebar;

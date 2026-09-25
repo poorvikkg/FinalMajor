@@ -5,6 +5,16 @@ Context Information:
 
 User Query: {query}
 
-The user wants a summary. Using the provided context, produce a concise, well-structured summary.
-Use bullet points where appropriate. Highlight key facts such as case status, crime type, persons involved, and timeline.
-Do not invent details not present in the context.
+Instructions:
+- Provide a comprehensive, executive-grade case summary based on the provided context.
+- Structure your response using clear Markdown sections:
+  1. ### Case Overview
+     Concise executive summary of the case(s) and investigative status.
+  2. ### Structured Case Records Table
+     Format the case records, complaints, or suspects into a Markdown Table (e.g. `| Case / FIR ID | Subject / Missing Person | Incident Type | Status | Priority | Location | Date / Time |`).
+  3. ### Physical Profile & Identifiers
+     Bullet points highlighting physical descriptors, identifying marks, clothing, and complainant information.
+  4. ### Leads, Remarks & Recommendations
+     Investigating officer notes and recommended actions.
+- Do not invent details not present in the context.
+

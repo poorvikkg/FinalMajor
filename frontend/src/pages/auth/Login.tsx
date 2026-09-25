@@ -32,22 +32,6 @@ export const Login: React.FC = () => {
     }
   };
 
-  const handleSkipLogin = () => {
-    const mockUser: any = {
-      _id: 'mock-admin-id',
-      id: 'mock-admin-id',
-      name: 'Admin User (Offline)',
-      email: 'admin@sentinel.com',
-      role: 'admin',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    const mockToken = 'mock-jwt-token';
-    setAuth(mockUser, mockToken);
-    navigate('/');
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <div className="max-w-md w-full">
@@ -83,17 +67,10 @@ export const Login: React.FC = () => {
                 className="bg-white border-slate-300 text-slate-900 focus:ring-slate-900 rounded-xl"
                 required
               />
-              <div className="pt-2 flex flex-col gap-3">
+              <div className="pt-2">
                 <Button type="submit" className="w-full py-3 uppercase text-[13px] tracking-widest font-bold" isLoading={loginLoading}>
                   Authorize Login
                 </Button>
-                <button
-                  type="button"
-                  onClick={handleSkipLogin}
-                  className="w-full py-3 uppercase text-[13px] tracking-widest font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors"
-                >
-                  Skip Login (Use RAG & Frontend Offline)
-                </button>
               </div>
             </form>
           </div>

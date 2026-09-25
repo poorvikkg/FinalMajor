@@ -5,7 +5,15 @@ Context Information:
 
 User Query: {query}
 
-The user wants to compare two or more regions, time periods, or crime categories.
-Structure your answer as a clear comparison table or side-by-side analysis.
-Highlight similarities, differences, and key insights from the data.
-Always cite the source dataset name and year for each data point.
+Instructions:
+- The user wants a comparative analysis across regions, time periods, case categories, or surveillance parameters.
+- Structure your response using clear Markdown sections:
+  1. ### Comparative Overview
+     Executive summary of the entities being compared and primary findings.
+  2. ### Side-by-Side Comparison Table
+     ALWAYS format the comparison in a clean Markdown Table (e.g. `| Comparison Metric / Dimension | Entity / Category A | Entity / Category B | Variance / Difference | Key Observation |`).
+  3. ### Detailed Analysis & Patterns
+     Bullet points analyzing key disparities, correlations, and trends.
+  4. ### Key Takeaways & Recommendations
+- Always cite the dataset names, regions, or years referenced.
+

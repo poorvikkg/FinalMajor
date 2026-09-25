@@ -199,7 +199,15 @@ async def ai_stream(request: StreamRequest):
             )
 
             context = ContextBuilder.build(mongo_records, vector_docs)
-            prompt = f"Context:\n{context}\n\nQuestion: {request.query}\nAnswer:"
+            from rag.workflow.graph import _load_prompt, _load_system_prompt, INTENT_PROMPT_MAP
+            prompt_file = INTENT_PROMPT_MAP.get(intent, "general_prompt.txt")
+            prompt_template = _load_prompt(prompt_file)
+            system_prompt = _load_system_prompt()
+            prompt = prompt_template.format(
+                system_prompt=system_prompt,
+                context=context,
+                query=request.query
+            )
 
             llm = GroqLLM()
             async for token in llm.stream(prompt):
